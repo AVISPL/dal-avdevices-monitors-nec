@@ -12,6 +12,7 @@ class NECMultisyncConstants {
     final static char MSG_TYPE_GET_REPLY = 0x44;
     final static char MSG_TYPE_SET = 0x45;
     final static char MSG_TYPE_SET_REPLY = 0x46;
+    final static char test = 0x46;
 
     final static String CMD_GET_POWER = "01D6";
     final static String CMD_SET_POWER = "C203D6";
