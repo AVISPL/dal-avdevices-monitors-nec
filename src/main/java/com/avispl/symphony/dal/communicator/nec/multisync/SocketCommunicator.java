@@ -138,6 +138,7 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         try {
             if (this.socket == null || this.socket.isClosed() || !this.socket.isConnected()) {
                 this.socket = new Socket(this.host, this.port);
+                this.socket.setSoTimeout(5000);
             }
 
         }catch (UnknownHostException ex) {
@@ -206,9 +207,17 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
                 this.status.setLastError(null);
             }
 
+            if(this.logger.isDebugEnabled()) {
+                this.logger.debug("Sending: " + NECMultisyncUtils.getHexString(data) + " to: " + this.host + " port: " + this.port);
+            }
+
             String response = this.internalSend(data);
+            if (this.logger.isDebugEnabled()) {
+                this.logger.debug("Received response: " + NECMultisyncUtils.getHexString(response) + " from: " + this.host + " port: " + this.port);
+            }
+
             if (this.logger.isTraceEnabled()) {
-                this.logger.trace("Received response: " + response + " from: " + this.host + " port: " + this.port);
+                this.logger.trace("Received response: " + NECMultisyncUtils.getHexString(response) + " from: " + this.host + " port: " + this.port);
             }
 
             this.status.setLastTimestamp(System.currentTimeMillis());
@@ -257,7 +266,7 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
 
     private String read(String command, InputStream in) throws Exception {
         if (this.logger.isDebugEnabled()) {
-            this.logger.debug("DEBUG - NEC Multisync Communicator reading after command text \"" + command + "\" was sent to host " + this.host);
+            this.logger.debug("DEBUG - Socket Communicator reading after command text \"" + NECMultisyncUtils.getHexString(command) + "\" was sent to host " + this.host);
         }
 
         BufferedInputStream reader = new BufferedInputStream(in);

@@ -1,5 +1,7 @@
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
+import java.io.IOException;
+
 public class NECMultisyncUtils {
     private final static char SOH = 0x01;
     private final static char STX = 0x02;

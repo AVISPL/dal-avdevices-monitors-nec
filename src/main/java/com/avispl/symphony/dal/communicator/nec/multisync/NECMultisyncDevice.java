@@ -30,35 +30,51 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     @Override
     public void controlProperty(ControllableProperty controllableProperty) throws Exception {
         if (controllableProperty.getProperty().equals(controlProperties.power.name())){
-            if(controllableProperty.getValue().toString().equals(controlPowerValues.ON.name())){
+            if(controllableProperty.getValue().toString().equals("1")){
                 powerON();
-            }else if(controllableProperty.getValue().toString().equals(controlPowerValues.OFF.name())){
+            }else if(controllableProperty.getValue().toString().equals("0")){
                 powerOFF();
             }
-        }else if (controllableProperty.getProperty().equals(controlProperties.input.name())){
-            setInput(inputNames.valueOf(controllableProperty.getValue().toString()));
         }
     }
 
     @Override
-    public void controlProperties(List<ControllableProperty> list) throws Exception {
-
+    public void controlProperties(List<ControllableProperty> controllableProperties) throws Exception {
+        controllableProperties.stream().forEach(p -> {
+            try {
+                controlProperty(p);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     @Override
     public List<Statistics> getMultipleStatistics() throws Exception {
 
+        if (this.logger.isDebugEnabled()) {
+            this.logger.debug("getting statistics");
+        }
+
         ExtendedStatistics extendedStatistics = new ExtendedStatistics();
 
         Map<String, String> controllable = new HashMap<String, String>(){{
-            put(controlProperties.power.name(),"[ON,OFF]");
-            put(controlProperties.input.name(),inputs.keySet().toString());
+            put(controlProperties.power.name(),"Toggle");
         }};
 
         Map<String, String> statistics = new HashMap<String, String>();
 
+        String power;
+
         try {
-            statistics.put(statisticsProperties.power.name(), getPower().name());
+            power = getPower().name();
+            if(power.compareTo("ON") == 0) {
+                statistics.put(statisticsProperties.power.name(), "1");
+            }else if(power.compareTo("OFF") == 0)
+            {
+                statistics.put(statisticsProperties.power.name(), "0");
+            }
+            //statistics.put(statisticsProperties.power.name(), getPower().name());
         }catch (Exception e) {
             if (this.logger.isDebugEnabled()) {
                 this.logger.debug("error during getPower", e);
@@ -87,7 +103,20 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         extendedStatistics.setControl(controllable);
         extendedStatistics.setStatistics(statistics);
 
-        return Collections.singletonList(extendedStatistics);
+        if(this.logger.isDebugEnabled()) {
+            for (String s : controllable.keySet()) {
+                this.logger.debug("controllable key: " + s + ",value: " + controllable.get(s));
+            }
+        }
+
+        if(this.logger.isDebugEnabled()) {
+            for (String s : statistics.keySet()) {
+                this.logger.debug("statistics key: " + s + ",value: " + statistics.get(s));
+            }
+        }
+
+        //return Collections.singletonList(extendedStatistics);
+        return new ArrayList<Statistics>(Collections.singleton(extendedStatistics));
     }
 
     public int getMonitorID() {
@@ -99,6 +128,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
     private powerStatus getPower() throws Exception{
+
+        if (this.logger.isDebugEnabled()) {
+            this.logger.debug("getting power");
+        }
+
         String response = send(NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_CMD,CMD_GET_POWER));
 
         powerStatus power= (powerStatus)digestResponse(response,responseValues.POWER_STATUS_READ);
@@ -112,6 +146,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
     private void powerON(){
+
+        if (this.logger.isDebugEnabled()) {
+            this.logger.debug("powerON");
+        }
+
         String toSend = NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_ON);
 
         try {
@@ -126,6 +165,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
     private void powerOFF(){
+
+        if (this.logger.isDebugEnabled()) {
+            this.logger.debug("powerOFF");
+        }
+
         String toSend = NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_OFF);
 
         try {
