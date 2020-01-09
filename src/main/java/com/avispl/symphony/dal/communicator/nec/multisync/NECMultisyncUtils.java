@@ -1,10 +1,11 @@
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class NECMultisyncUtils {
+
+    //few constants used to build the commands
     private final static byte SOH = 0x01;
     private final static byte STX = 0x02;
     private final static byte ETX = 0x03;
@@ -12,7 +13,11 @@ public class NECMultisyncUtils {
     private final static byte CTRL_ADDR = 0x30;
     private final static byte CARRIAGE_RETURN = 0x0D;
 
-    //Calculate an xor checksum of a byte[], return a byte
+    /**
+     * This method is used to calculate the xor checksum of a byte array
+     * @param bytes This is the list of bytes against which the checksum should be calculated
+     * @return byte This returns the calculated xor checksum.
+     */
     static byte xor(byte bytes[]){
         byte checkSum = 0;
 
@@ -23,7 +28,11 @@ public class NECMultisyncUtils {
         return checkSum;
     }
 
-    //print a String in HEX format
+    /**
+     * This method is used to convert a String in HEX format (for printing purposes)
+     * @param str This is the String to be converted in Hex format
+     * @return String This returns the converted String
+     */
     protected static String getHexString(String str){
         StringBuilder sBld = new StringBuilder();
 
@@ -40,11 +49,21 @@ public class NECMultisyncUtils {
         return sBld.toString();
     }
 
-    //build a string to be sent according to the NEC Protocol
+    /**
+     * This method is used to build a string to be sent according to the NEC Protocol (See bellow)
+     */
     static byte[] buildSendString(byte monitorID, byte messageType, byte[] command){
         return buildSendString(monitorID,messageType,command,null);
     }
 
+    /**
+     * This method is used to build a string to be sent according to the NEC Protocol
+     * @param monitorID This is byte representing the monitro ID (1=41h -> 26=5Ah, ALL = 2Ah)
+     * @param messageType This is byte representing the type of message to be sent (see NECMultisyncConstants)
+     * @param command This is the byte array reprensenting the command to be sent (see NECMultisyncConstants)
+     * @param param This is the byte array reprensenting the parameter values to be sent (see NECMultisyncConstants)
+     * @return byte[] This returns the string to be sent to the NEC display
+     */
     static byte[] buildSendString(byte monitorID, byte messageType, byte[] command, byte[] param){
         List<Byte> bytes = new ArrayList<>();
 

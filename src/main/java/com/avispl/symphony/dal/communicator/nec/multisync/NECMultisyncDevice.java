@@ -14,6 +14,9 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
     private int monitorID;
 
+    /**
+     * Constructor set the TCP/IP port to be used as well the default monitor ID
+     */
     public NECMultisyncDevice() {
         super();
 
@@ -27,6 +30,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
 
+    /**
+     * This method is recalled by Symphony to control specific property
+     * @param controllableProperty This is the property to be controled
+     */
     @Override
     public void controlProperty(ControllableProperty controllableProperty) throws Exception {
         if (controllableProperty.getProperty().equals(controlProperties.power.name())){
@@ -38,6 +45,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
+    /**
+     * This method is recalled by Symphony to control a list of properties
+     * @param controllableProperties This is the list of properties to be controlled
+     * @return byte This returns the calculated xor checksum.
+     */
     @Override
     public void controlProperties(List<ControllableProperty> controllableProperties) throws Exception {
         controllableProperties.stream().forEach(p -> {
@@ -49,21 +61,24 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         });
     }
 
+    /**
+     * This method is recalled by Symphony to get the list of statistics to be displayed
+     * @return List<Statistics> This return the list of statistics.
+     */
     @Override
     public List<Statistics> getMultipleStatistics() throws Exception {
 
-        if (this.logger.isDebugEnabled()) {
-            this.logger.debug("getting statistics");
-        }
-
         ExtendedStatistics extendedStatistics = new ExtendedStatistics();
 
+        //controllable statistics
         Map<String, String> controllable = new HashMap<String, String>(){{
             put(controlProperties.power.name(),"Toggle");
         }};
 
+        //statistics
         Map<String, String> statistics = new HashMap<String, String>();
 
+        //getting power status from device
         String power;
 
         try {
@@ -74,7 +89,6 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             {
                 statistics.put(statisticsProperties.power.name(), "0");
             }
-            //statistics.put(statisticsProperties.power.name(), getPower().name());
         }catch (Exception e) {
             if (this.logger.isDebugEnabled()) {
                 this.logger.debug("error during getPower", e);
@@ -82,6 +96,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             throw e;
         }
 
+        //getting diagnostic result from device
         try {
             statistics.put(statisticsProperties.diagnosis.name(), getDiagResult().name());
         }catch (Exception e) {
@@ -91,6 +106,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             throw e;
         }
 
+        //getting current device input
         try {
             statistics.put(statisticsProperties.input.name(), getInput().name());
         }catch (Exception e) {
@@ -100,41 +116,82 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             throw e;
         }
 
+        //getting device temperature
+        try {
+            statistics.put(statisticsProperties.temperature.name(), String.valueOf(getTemperature()));
+        }catch (Exception e) {
+            if (this.logger.isDebugEnabled()) {
+                this.logger.debug("error during getTemperature", e);
+            }
+            throw e;
+        }
+
         extendedStatistics.setControl(controllable);
         extendedStatistics.setStatistics(statistics);
 
+        //Displays the generated list of controllable for debugging purposes
         if(this.logger.isDebugEnabled()) {
             for (String s : controllable.keySet()) {
                 this.logger.debug("controllable key: " + s + ",value: " + controllable.get(s));
             }
         }
 
+        //Displays the generated list of statistics for debugging purposes
         if(this.logger.isDebugEnabled()) {
             for (String s : statistics.keySet()) {
                 this.logger.debug("statistics key: " + s + ",value: " + statistics.get(s));
             }
         }
 
-        //return Collections.singletonList(extendedStatistics);
         return new ArrayList<Statistics>(Collections.singleton(extendedStatistics));
     }
 
+    /**
+     * This method is recalled by Symphony to get the current monitor ID (Future purpose)
+     * @return int This returns the current monitor ID.
+     */
     public int getMonitorID() {
         return monitorID;
     }
 
+    /**
+     * This method is is used by Symphony to set the monitor ID (FUture purpose)
+     * @param monitorID This is the monitor ID to be set
+     */
     public void setMonitorID(int monitorID) {
         this.monitorID = monitorID+64;
     }
 
-    private powerStatus getPower() throws Exception{
+    /**
+     * This method is used to get the current display temperature (from sensor 1)
+     * @return int This returns the retreived temperature.
+     */
+    private int getTemperature() throws Exception{
 
-        if (this.logger.isDebugEnabled()) {
-            this.logger.debug("getting power");
+        //setting the sensor to retreive the temperature from
+        send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_SET,CMD_SET_SENSOR,SENSOR_1));
+
+        //wait a sec to allow the display to settle
+        synchronized(this) {//synchronized block
+            Thread.sleep(1000);
         }
 
+        //send the get temperature command
+        byte[]  response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_GET,CMD_GET_TEMP));
+
+        //digest the result and returns the temperature
+        return (Integer) digestResponse(response,responseValues.GET_TEMPERATURE);
+    }
+
+    /**
+     * This method is used to get the current display power status
+     * @return powerStatus This returns the calculated xor checksum.
+     */
+    private powerStatus getPower() throws Exception{
+        //sending the get power command
         byte[]  response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_GET_POWER));
 
+        //digest the result
         powerStatus power= (powerStatus)digestResponse(response,responseValues.POWER_STATUS_READ);
 
         if(power == null)
@@ -145,17 +202,16 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
+    /**
+     * This method is used to send the power ON command to the display
+     */
     private void powerON(){
-
-        if (this.logger.isDebugEnabled()) {
-            this.logger.debug("powerON");
-        }
-
         byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_ON);
 
         try {
             byte[] response = send(toSend);
 
+            //digesting the response but voiding the result
             digestResponse(response,responseValues.POWER_CONTROL);
         } catch (Exception e) {
             if (this.logger.isDebugEnabled()) {
@@ -164,17 +220,16 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
+    /**
+     * This method is used to send the power OFF command to the display
+     */
     private void powerOFF(){
-
-        if (this.logger.isDebugEnabled()) {
-            this.logger.debug("powerOFF");
-        }
-
         byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_OFF);
 
         try {
             byte[] response = send(toSend);
 
+            //digesting the response but voiding the result
             digestResponse(response,responseValues.POWER_CONTROL);
         } catch (Exception e) {
             if (this.logger.isDebugEnabled()) {
@@ -183,6 +238,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
+    /**
+     * This method is used to get the diagnostics results from the display
+     * @return diagResultNames This returns the retrieved diagnostic results.
+     */
     private diagResultNames getDiagResult()throws Exception{
 
         byte[] response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SELF_DIAG));
@@ -197,6 +256,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
+    /**
+     * This method is used to get the current display input
+     * @return inputNames This returns the current input.
+     */
     private inputNames getInput()throws  Exception{
         byte[] response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_GET,CMD_GET_INPUT));
 
@@ -210,6 +273,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
+    /**
+     * This method is is used to change the display input (future pupose (Symphony doesn't currently support enums)
+     * @param i This is the input to change to
+     */
     private void setInput(inputNames i){
         byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_SET,CMD_SET_INPUT,inputs.get(i));
 
@@ -224,14 +291,19 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
-    private Enum digestResponse(byte[] response, responseValues expectedResponse){
+    /**
+     * This method is used to digest the response received from the device
+     * @param response This is the response to be digested
+     * @param expectedResponse This is the expected response type to be compared with received
+     * @return Object This returns the result digested from the response.
+     */
+    private Object digestResponse(byte[] response, responseValues expectedResponse){
 
         byte responseMessageType = response[4];
 
-        //int responseMessageLength =  Integer.parseInt(response.substring(5,7),16);
-
         Arrays.copyOfRange(response,1,response.length-2);
 
+        //checksum verification
         if(response[response.length-2] == NECMultisyncUtils.xor(Arrays.copyOfRange(response,1,response.length-2))){
             if(responseMessageType == MSG_TYPE_CMD_REPLY){
                 if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_RESERVED_DATA)){
@@ -241,7 +313,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                             return power;
                         }
                     }else if(Arrays.equals(Arrays.copyOfRange(response,10,12),REP_RESULT_CODE_NO_UNSUPPORTED)){
-                        //error
+                        if (this.logger.isErrorEnabled()) {
+                            this.logger.error("error: REP_RESULT_CODE_NO_UNSUPPORTED: " + this.host + " port: " + this.getPort());
+                        }
+                        throw new RuntimeException("REP_RESULT_CODE_NO_UNSUPPORTED");
                     }
                 }else if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_RESULT_CODE_NO_ERROR)){
 
@@ -250,7 +325,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                         return power;
                     }
                 }else if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_RESULT_CODE_NO_UNSUPPORTED)){
-                    //error
+                    if (this.logger.isErrorEnabled()) {
+                        this.logger.error("error: REP_RESULT_CODE_NO_UNSUPPORTED: " + this.host + " port: " + this.getPort());
+                    }
+                    throw new RuntimeException("REP_RESULT_CODE_NO_UNSUPPORTED");
                 }else if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_SELF_DIAG_Codes) && expectedResponse == responseValues.SELF_DIAG){
 
                     for(Map.Entry<diagResultNames,byte[]> entry : DIAG_RESULT_CODES.entrySet()){
@@ -272,17 +350,25 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                                 return input;
                             }
                         }
-                    }
+                    }else if(Arrays.equals(Arrays.copyOfRange(response,10,14),CMD_GET_TEMP))
+                    {
+                        String value = new String(Arrays.copyOfRange(response,20,24));
 
+                        return Integer.parseInt(value,16)/2;
+                    }
                 }else
                 {
-                    //Error
+                    if (this.logger.isErrorEnabled()) {
+                        this.logger.error("error: REP_RESULT_CODE_NO_ERROR: " + this.host + " port: " + this.getPort());
+                    }
+                    throw new RuntimeException("REP_RESULT_CODE_NO_ERROR");
                 }
             }
-        }else{//Wrong BCC
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error: wrong BCC");
+        }else{//Wrong checksum
+            if (this.logger.isErrorEnabled()) {
+                this.logger.error("error: wrong checksum communicating with: " + this.host + " port: " + this.getPort());
             }
+            throw new RuntimeException("wrong Checksum received");
         }
         return null;
     }

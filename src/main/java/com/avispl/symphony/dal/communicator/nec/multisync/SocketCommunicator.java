@@ -27,13 +27,24 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final ConnectionStatus status = new ConnectionStatus();
 
+    /**
+     * Empty constructor
+     */
     public SocketCommunicator() {
     }
 
+    /**
+     * This method returns the device TCP/IP port
+     * @return int This returns the current TCP/IP port.
+     */
     public int getPort() {
         return this.port;
     }
 
+    /**
+     * This method is used set the device TCP/IP port
+     * @param port This is the TCP/IP port to set
+     */
     public void setPort(int port) {
         if (this.isInitialized()) {
             throw new IllegalStateException("Cannot change properties after init() was called");
@@ -66,6 +77,9 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         }
     }
 
+    /**
+     * This method is used to create a connection
+     */
     @Override
     public void connect() throws Exception {
         if (!this.isInitialized()) {
@@ -104,6 +118,9 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         }
     }
 
+    /**
+     * This method is used to disconnect from the device
+     */
     @Override
     public void disconnect() throws Exception {
         if (this.logger.isTraceEnabled()) {
@@ -136,6 +153,9 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         return var2;
     }
 
+    /**
+     * This method is used to create a channel actually create a socket
+     */
     private void createChannel() throws Exception {
         try {
             if (this.socket == null || this.socket.isClosed() || !this.socket.isConnected()) {
@@ -176,6 +196,11 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         return null != client && client.isConnected();
     }
 
+    /**
+     * This method is used to send a command to a device
+     * @param data This is the data to be sent
+     * @return byte[] This returns the reply received from the device.
+     */
     protected byte[] send(byte[] data) throws Exception {
         if (!this.isInitialized()) {
             throw new IllegalStateException("ShellCommunicator cannot be used before init() is called");
@@ -202,7 +227,11 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
 
     protected static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
-
+    /**
+     * This method is used to generate a string from a byte array
+     * @param bytes This is the byte array to convert to a String
+     * @return String This returns the generated String.
+     */
     public static String getHexByteString(byte[] bytes) throws IOException {
         return getHexByteString((CharSequence)null, ",", (CharSequence)null, bytes);
     }
