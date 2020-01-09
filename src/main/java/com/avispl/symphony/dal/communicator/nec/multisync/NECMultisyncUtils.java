@@ -1,13 +1,16 @@
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class NECMultisyncUtils {
-    private final static char SOH = 0x01;
-    private final static char STX = 0x02;
-    private final static char ETX = 0x03;
-    private final static char RESERVED = 0x30;
-    private final static char CTRL_ADDR = 0x30;
+    private final static byte SOH = 0x01;
+    private final static byte STX = 0x02;
+    private final static byte ETX = 0x03;
+    private final static byte RESERVED = 0x30;
+    private final static byte CTRL_ADDR = 0x30;
+    private final static byte CARRIAGE_RETURN = 0x0D;
 
     //Calculate an xor checksum of a byte[], return a byte
     static byte xor(byte bytes[]){
@@ -38,25 +41,60 @@ public class NECMultisyncUtils {
     }
 
     //build a string to be sent according to the NEC Protocol
-    static String buildSendString(char monitorID, char messageType, String command){
+    static byte[] buildSendString(byte monitorID, byte messageType, byte[] command){
         return buildSendString(monitorID,messageType,command,null);
     }
 
-    static String buildSendString(char monitorID, char messageType, String command, String param){
+    static byte[] buildSendString(byte monitorID, byte messageType, byte[] command, byte[] param){
+        List<Byte> bytes = new ArrayList<>();
+
+        List<Byte> header = new ArrayList<>();
+        List<Byte> message = new ArrayList<>();
 
         //build message first as it's size is required in header
-        String message = new String();
 
-        if(param != null) {
-            message = message + STX + command + param + ETX;
-        }else{
-            message = message + STX + command + ETX;
+        message.add(STX);
+        for(byte b:command){
+            message.add(b);
         }
+        if(param != null) {
+            for(byte b:param){
+                message.add(b);
+            }
+        }
+        message.add(ETX);
 
         //build header
-        String header = new String();
-        header = header + SOH + RESERVED + monitorID + CTRL_ADDR + messageType + String.format("%02x", message.length());
 
-        return header + message + (char) xor((header.substring(1) + message).getBytes()) + '\r';
+        header.add(SOH);
+        header.add(RESERVED);
+        header.add(monitorID);
+        header.add(CTRL_ADDR);
+        header.add(messageType);
+
+        String messageSize =String.format("%02x", message.size());
+        header.add(messageSize.getBytes()[0]);
+        header.add(messageSize.getBytes()[1]);
+
+        bytes.addAll(header);
+        bytes.addAll(message);
+
+        byte[] checksumBytes = new byte[header.size()-1+message.size()];
+        for (int i = 1; i < header.size(); i++) {
+            checksumBytes[i-1] = header.get(i);
+        }
+        for (int i = 0; i < message.size(); i++) {
+            checksumBytes[i+header.size()-1] = message.get(i);
+        }
+
+        bytes.add(xor(checksumBytes));
+        bytes.add(CARRIAGE_RETURN);
+
+        byte[] byteArray = new byte[bytes.size()];
+        for (int i = 0; i < bytes.size(); i++) {
+            byteArray[i] = bytes.get(i);
+        }
+
+        return byteArray;
     }
 }

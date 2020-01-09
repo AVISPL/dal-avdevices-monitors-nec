@@ -8,7 +8,9 @@ import com.avispl.symphony.dal.communicator.ConnectionStatus;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
@@ -174,7 +176,7 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         return null != client && client.isConnected();
     }
 
-    protected String send(String data) throws Exception {
+    protected byte[] send(byte[] data) throws Exception {
         if (!this.isInitialized()) {
             throw new IllegalStateException("ShellCommunicator cannot be used before init() is called");
         } else if (null == data) {
@@ -187,7 +189,7 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
             Lock writeLock = this.lock.writeLock();
             writeLock.lock();
 
-            String var3;
+            byte[] var3;
             try {
                 var3 = this.send(data, true);
             } finally {
@@ -198,7 +200,38 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         }
     }
 
-    private String send(String data, boolean retryOnError) throws Exception {
+    protected static final char[] hexArray = "0123456789ABCDEF".toCharArray();
+
+
+    public static String getHexByteString(byte[] bytes) throws IOException {
+        return getHexByteString((CharSequence)null, ",", (CharSequence)null, bytes);
+    }
+
+    public static String getHexByteString(CharSequence prefix, CharSequence separator, CharSequence suffix, byte[] bytes) throws IOException {
+        byte[] data = bytes;
+        StringBuilder sb = new StringBuilder();
+
+        for(int i = 0; i < data.length; ++i) {
+            if (i > 0) {
+                sb.append(separator);
+            }
+
+            int v = data[i] & 255;
+            if (prefix != null) {
+                sb.append(prefix);
+            }
+
+            sb.append(hexArray[v >> 4]);
+            sb.append(hexArray[v & 15]);
+            if (suffix != null) {
+                sb.append(suffix);
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private byte[] send(byte[] data, boolean retryOnError) throws Exception {
         try {
             if (!this.isChannelConnected()) {
                 this.createChannel();
@@ -208,16 +241,17 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
             }
 
             if(this.logger.isDebugEnabled()) {
-                this.logger.debug("Sending: " + NECMultisyncUtils.getHexString(data) + " to: " + this.host + " port: " + this.port);
+                this.logger.debug("Sending: " + getHexByteString(data) + " to: " + this.host + " port: " + this.port);
             }
 
-            String response = this.internalSend(data);
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("Received response: " + NECMultisyncUtils.getHexString(response) + " from: " + this.host + " port: " + this.port);
+            byte response[] = this.internalSend(data);
+
+            if(this.logger.isDebugEnabled()) {
+                this.logger.debug("Received response: " + getHexByteString(response) + " from: " + this.host + " port: " + this.port);
             }
 
             if (this.logger.isTraceEnabled()) {
-                this.logger.trace("Received response: " + NECMultisyncUtils.getHexString(response) + " from: " + this.host + " port: " + this.port);
+                this.logger.trace("Received response: " + response + " from: " + this.host + " port: " + this.port);
             }
 
             this.status.setLastTimestamp(System.currentTimeMillis());
@@ -229,7 +263,21 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
 
             this.status.setLastTimestamp(System.currentTimeMillis());
             throw var4;
-        } catch (Exception var5) {
+        }catch(SocketTimeoutException ex){
+            if (this.logger.isDebugEnabled()) {
+                this.logger.debug("Time out while sending command: " + data + " to: " + this.host + " port: " + this.port + " connection state: " + this.status.getConnectionState() + " error: ", ex);
+            }
+
+            //throw ex;
+            this.status.setLastError(ex);
+            this.status.setConnectionState(ConnectionState.Unknown);
+            this.destroyChannel();
+            if (retryOnError) {
+                return this.send(data, true);
+            } else {
+                throw ex;
+            }
+        } catch(Exception var5) {
             if (var5 instanceof InterruptedException) {
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("Interrupted while sending command: " + data + " to: " + this.host + " port: " + this.port + " connection state: " + this.status.getConnectionState() + " error: ", var5);
@@ -249,34 +297,39 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
         }
     }
 
-    private String internalSend(String outputData) throws Exception {
+    private byte[] internalSend(byte[] outputData) throws Exception {
         this.write(outputData);
         return this.read(outputData, this.socket.getInputStream());
     }
 
-    private void write(String outputData) throws Exception {
-
+    private void write(byte[] outputData) throws Exception {
         OutputStream os = this.socket.getOutputStream();
-        PrintWriter writer = new PrintWriter(os, true);
 
-        writer.println(outputData);
-
-        writer.flush();
+        os.write(outputData);
+        os.flush();
     }
 
-    private String read(String command, InputStream in) throws Exception {
+    private byte[] read(byte[] command, InputStream in) throws Exception {
         if (this.logger.isDebugEnabled()) {
-            this.logger.debug("DEBUG - Socket Communicator reading after command text \"" + NECMultisyncUtils.getHexString(command) + "\" was sent to host " + this.host);
+            this.logger.debug("DEBUG - Socket Communicator reading after command text \"" + command + "\" was sent to host " + this.host);
         }
 
         BufferedInputStream reader = new BufferedInputStream(in);
-        String str = "";
+
+        List<Byte> bytes = new ArrayList<>();
 
         do{
-            str += ((char)reader.read());
+            bytes.add((byte)reader.read());
         }while (reader.available()>0);
 
-        return str;
+        byte byteArray[] = new byte[bytes.size()];
+
+        for(int i = 0;i<bytes.size();i++)
+        {
+            byteArray[i] = bytes.get(i);
+        }
+
+        return byteArray;
     }
 
     protected boolean doneReading(String command, String response) throws CommandFailureException {

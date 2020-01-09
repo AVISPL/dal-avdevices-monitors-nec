@@ -133,7 +133,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             this.logger.debug("getting power");
         }
 
-        String response = send(NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_CMD,CMD_GET_POWER));
+        byte[]  response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_GET_POWER));
 
         powerStatus power= (powerStatus)digestResponse(response,responseValues.POWER_STATUS_READ);
 
@@ -151,10 +151,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             this.logger.debug("powerON");
         }
 
-        String toSend = NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_ON);
+        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_ON);
 
         try {
-            String response = send(toSend);
+            byte[] response = send(toSend);
 
             digestResponse(response,responseValues.POWER_CONTROL);
         } catch (Exception e) {
@@ -170,10 +170,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             this.logger.debug("powerOFF");
         }
 
-        String toSend = NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_OFF);
+        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_OFF);
 
         try {
-            String response = send(toSend);
+            byte[] response = send(toSend);
 
             digestResponse(response,responseValues.POWER_CONTROL);
         } catch (Exception e) {
@@ -185,7 +185,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
     private diagResultNames getDiagResult()throws Exception{
 
-        String response = send(NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_CMD,CMD_SELF_DIAG));
+        byte[] response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SELF_DIAG));
 
         diagResultNames diagResult = (diagResultNames)digestResponse(response,responseValues.SELF_DIAG);
 
@@ -198,7 +198,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
     private inputNames getInput()throws  Exception{
-        String response = send(NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_GET,CMD_GET_INPUT));
+        byte[] response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_GET,CMD_GET_INPUT));
 
         inputNames input = (inputNames)digestResponse(response,responseValues.INPUT_STATUS_READ);
 
@@ -211,10 +211,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
     private void setInput(inputNames i){
-        String toSend = NECMultisyncUtils.buildSendString((char)monitorID,MSG_TYPE_SET,CMD_SET_INPUT,inputs.get(i));
+        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_SET,CMD_SET_INPUT,inputs.get(i));
 
         try {
-            String response = send(toSend);
+            byte[] response = send(toSend);
 
             digestResponse(response,responseValues.INPUT_CONTROL);
         } catch (Exception e) {
@@ -224,49 +224,49 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
-    private Enum digestResponse(String response, responseValues expectedResponse){
+    private Enum digestResponse(byte[] response, responseValues expectedResponse){
 
-        int responseSourceID = response.charAt(3) - 64;
-
-        char responseMessageType = response.charAt(4);
+        byte responseMessageType = response[4];
 
         //int responseMessageLength =  Integer.parseInt(response.substring(5,7),16);
 
-        if(((byte) response.charAt(response.length()-2)) == NECMultisyncUtils.xor((response.substring(1,response.length()-2)).getBytes())){
+        Arrays.copyOfRange(response,1,response.length-2);
+
+        if(response[response.length-2] == NECMultisyncUtils.xor(Arrays.copyOfRange(response,1,response.length-2))){
             if(responseMessageType == MSG_TYPE_CMD_REPLY){
-                if(Arrays.equals(response.substring(8,10).toCharArray(),REP_RESERVED_DATA)){
-                    if(Arrays.equals(response.substring(10,12).toCharArray(),REP_RESULT_CODE_NO_ERROR)){
-                        if(Arrays.equals(response.substring(12,14).toCharArray(),REP_POWER_STATUS_READ_Codes) && expectedResponse == responseValues.POWER_STATUS_READ){
-                            powerStatus power = powerStatus.values()[Character.digit(response.charAt(23),16)-1];
+                if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_RESERVED_DATA)){
+                    if(Arrays.equals(Arrays.copyOfRange(response,10,12),REP_RESULT_CODE_NO_ERROR)){
+                        if(Arrays.equals(Arrays.copyOfRange(response,12,14),REP_POWER_STATUS_READ_Codes) && expectedResponse == responseValues.POWER_STATUS_READ){
+                            powerStatus power = powerStatus.values()[Character.getNumericValue((char)response[23])-1];
                             return power;
                         }
-                    }else if(Arrays.equals(response.substring(10,12).toCharArray(),REP_RESULT_CODE_NO_UNSUPPORTED)){
+                    }else if(Arrays.equals(Arrays.copyOfRange(response,10,12),REP_RESULT_CODE_NO_UNSUPPORTED)){
                         //error
                     }
-                }else if(Arrays.equals(response.substring(8,10).toCharArray(),REP_RESULT_CODE_NO_ERROR)){
+                }else if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_RESULT_CODE_NO_ERROR)){
 
-                    if(Arrays.equals(response.substring(10,16).toCharArray(),REP_POWER_CONTROL_Codes) && expectedResponse == responseValues.POWER_CONTROL) {
-                        powerStatus power = powerStatus.values()[Character.digit(response.charAt(19),16)-1];
+                    if(Arrays.equals(Arrays.copyOfRange(response,10,16),REP_POWER_CONTROL_Codes) && expectedResponse == responseValues.POWER_CONTROL) {
+                        powerStatus power = powerStatus.values()[Character.getNumericValue((char)response[19])-1];
                         return power;
                     }
-                }else if(Arrays.equals(response.substring(8,10).toCharArray(),REP_RESULT_CODE_NO_UNSUPPORTED)){
+                }else if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_RESULT_CODE_NO_UNSUPPORTED)){
                     //error
-                }else if(Arrays.equals(response.substring(8,10).toCharArray(),REP_SELF_DIAG_Codes) && expectedResponse == responseValues.SELF_DIAG){
+                }else if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_SELF_DIAG_Codes) && expectedResponse == responseValues.SELF_DIAG){
 
-                    for(Map.Entry<diagResultNames,String> entry : DIAG_RESULT_CODES.entrySet()){
-                        if(Arrays.equals(response.substring(10,12).toCharArray(),entry.getValue().toCharArray())){
+                    for(Map.Entry<diagResultNames,byte[]> entry : DIAG_RESULT_CODES.entrySet()){
+                        if(Arrays.equals(Arrays.copyOfRange(response,10,12),entry.getValue())){
                             diagResultNames diagResult = entry.getKey();
                             return diagResult;
                         }
                     }
                 }
             }else if(responseMessageType == MSG_TYPE_GET_REPLY){
-                if(Arrays.equals(response.substring(8,10).toCharArray(),REP_RESULT_CODE_NO_ERROR)){
-                    if(Arrays.equals(response.substring(10,14).toCharArray(),CMD_GET_INPUT.toCharArray()))
+                if(Arrays.equals(Arrays.copyOfRange(response,8,10),REP_RESULT_CODE_NO_ERROR)){
+                    if(Arrays.equals(Arrays.copyOfRange(response,10,14),CMD_GET_INPUT))
                     {
-                        for(Map.Entry<inputNames,String> entry: inputs.entrySet())
+                        for(Map.Entry<inputNames,byte[]> entry: inputs.entrySet())
                         {
-                            if(Arrays.equals(response.substring(20,24).toCharArray(),entry.getValue().toCharArray()))
+                            if(Arrays.equals(Arrays.copyOfRange(response,20,24),entry.getValue()))
                             {
                                 inputNames input = entry.getKey();
                                 return input;
