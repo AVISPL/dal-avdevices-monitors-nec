@@ -70,6 +70,7 @@ public class NECMultisyncUtils {
         List<Byte> header = new ArrayList<>();
         List<Byte> message = new ArrayList<>();
 
+
         //build message first as it's size is required in header
 
         message.add(STX);
