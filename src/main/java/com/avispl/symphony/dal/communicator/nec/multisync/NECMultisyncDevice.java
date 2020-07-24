@@ -111,12 +111,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             String power;
 
             try {
+                statistics.put(statisticsProperties.power.name(), "");
                 power = getPower().name();
                 if (power.contains("ON")) {
-                    statistics.put(statisticsProperties.power.name(), "1");
                     advancedControllableProperties.add(new AdvancedControllableProperty(statisticsProperties.power.name(), new Date(), powerSwitch, "1"));
-                } else if (power.contains("OFF")) {
-                    statistics.put(statisticsProperties.power.name(), "0");
+                } else {
                     advancedControllableProperties.add(new AdvancedControllableProperty(statisticsProperties.power.name(), new Date(), powerSwitch, "0"));
                 }
             } catch (Exception e) {
@@ -199,11 +198,6 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         //setting the sensor to retreive the temperature from
         send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_SET,CMD_SET_SENSOR,SENSOR_1));
-
-        //wait a sec to allow the display to settle
-        synchronized(this) {//synchronized block
-            Thread.sleep(1000);
-        }
 
         //send the get temperature command
         byte[]  response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_GET,CMD_GET_TEMP));
