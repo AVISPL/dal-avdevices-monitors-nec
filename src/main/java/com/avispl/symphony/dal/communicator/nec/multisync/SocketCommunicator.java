@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2020 AVI-SPL Inc. All Rights Reserved.
+ */
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
 import com.avispl.symphony.api.dal.dto.control.ConnectionState;
