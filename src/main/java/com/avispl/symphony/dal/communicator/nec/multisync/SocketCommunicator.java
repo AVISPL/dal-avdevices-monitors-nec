@@ -305,7 +305,7 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
             this.status.setConnectionState(ConnectionState.Unknown);
             this.destroyChannel();
             if (retryOnError) {
-                return this.send(data, true);
+                return this.send(data, false);
             } else {
                 throw ex;
             }
