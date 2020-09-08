@@ -6,7 +6,7 @@
 
     <groupId>com.avispl.symphony.dal.device.nec.multisync</groupId>
     <artifactId>symphony-dal-communicator-nec-multisync</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <properties>
         <symphonyApiVersion>LATEST</symphonyApiVersion>
     </properties>
@@ -52,53 +52,49 @@
             <scope>system</scope>
             <systemPath>${basedir}/lib/icmp4j-1018.jar</systemPath>
         </dependency>
-        <dependency>
-            <groupId>org.apache.sshd</groupId>
-            <artifactId>sshd-core</artifactId>
-            <version>2.2.0</version>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.12</version>
-            <scope>test</scope>
-        </dependency>
 
         <!--dependencies of symphony-dal-commons-->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
             <version>4.2.4.RELEASE</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>2.10.0.pr1</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.snmp4j</groupId>
             <artifactId>snmp4j</artifactId>
             <version>2.5.0</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.jcraft</groupId>
             <artifactId>jsch</artifactId>
             <version>0.1.55</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
             <version>3.6</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>4.5.8</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.java.dev.jna</groupId>
             <artifactId>jna-platform</artifactId>
             <version>5.3.1</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>

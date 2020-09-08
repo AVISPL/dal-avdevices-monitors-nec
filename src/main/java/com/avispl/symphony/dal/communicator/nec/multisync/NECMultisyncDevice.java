@@ -1,18 +1,30 @@
+/*
+ * Copyright (c) 2020 AVI-SPL Inc. All Rights Reserved.
+ */
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
 import com.avispl.symphony.api.dal.control.Controller;
+import com.avispl.symphony.api.dal.dto.control.AdvancedControllableProperty;
 import com.avispl.symphony.api.dal.dto.control.ControllableProperty;
 import com.avispl.symphony.api.dal.dto.monitor.ExtendedStatistics;
 import com.avispl.symphony.api.dal.dto.monitor.Statistics;
 import com.avispl.symphony.api.dal.monitor.Monitorable;
 
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.avispl.symphony.dal.communicator.nec.multisync.NECMultisyncConstants.*;
 
 public class NECMultisyncDevice extends SocketCommunicator implements Controller, Monitorable {
 
     private int monitorID;
+
+    private final int STARTUP_SHUTDOWN_COOLDOWN = 3000;
+    private long latestShutdownStartupTimestamp;
+
+    private ExtendedStatistics localStatistics;
+
+    private final ReentrantLock powerLock = new ReentrantLock();
 
     /**
      * Constructor set the TCP/IP port to be used as well the default monitor ID
@@ -36,12 +48,17 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
      */
     @Override
     public void controlProperty(ControllableProperty controllableProperty) throws Exception {
-        if (controllableProperty.getProperty().equals(controlProperties.power.name())){
-            if(controllableProperty.getValue().toString().equals("1")){
-                powerON();
-            }else if(controllableProperty.getValue().toString().equals("0")){
-                powerOFF();
+        powerLock.lock();
+        try {
+            if (controllableProperty.getProperty().equals(controlProperties.power.name())){
+                if(controllableProperty.getValue().toString().equals("1")){
+                    powerSwitch(POWER_ON);
+                }else if(controllableProperty.getValue().toString().equals("0")){
+                    powerSwitch(POWER_OFF);
+                }
             }
+        } finally {
+            powerLock.unlock();
         }
     }
 
@@ -69,81 +86,92 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     public List<Statistics> getMultipleStatistics() throws Exception {
 
         ExtendedStatistics extendedStatistics = new ExtendedStatistics();
-
-        //controllable statistics
-        Map<String, String> controllable = new HashMap<String, String>(){{
-            put(controlProperties.power.name(),"Toggle");
-        }};
-
-        //statistics
-        Map<String, String> statistics = new HashMap<String, String>();
-
-        //getting power status from device
-        String power;
-
+        powerLock.lock();
         try {
-            power = getPower().name();
-            if(power.compareTo("ON") == 0) {
-                statistics.put(statisticsProperties.power.name(), "1");
-            }else if(power.compareTo("OFF") == 0)
-            {
-                statistics.put(statisticsProperties.power.name(), "0");
+            if (isValidShutdownStartupCooldown() && localStatistics != null) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Device is occupied. Skipping statistics refresh call.");
+                }
+                extendedStatistics.setStatistics(localStatistics.getStatistics());
+                extendedStatistics.setControllableProperties(localStatistics.getControllableProperties());
+                return Collections.singletonList(extendedStatistics);
             }
-        }catch (Exception e) {
+
+            //controls
+            List<AdvancedControllableProperty> advancedControllableProperties = new ArrayList<>();
+            //statistics
+            Map<String, String> statistics = new HashMap<>();
+
+            //controllable properties
+            AdvancedControllableProperty.Switch powerSwitch = new AdvancedControllableProperty.Switch();
+            powerSwitch.setLabelOn("On");
+            powerSwitch.setLabelOff("Off");
+
+            //getting power status from device
+            String power;
+
+            try {
+                statistics.put(statisticsProperties.power.name(), "");
+                power = getPower().name();
+                if (power.contains("ON")) {
+                    advancedControllableProperties.add(new AdvancedControllableProperty(statisticsProperties.power.name(), new Date(), powerSwitch, "1"));
+                } else {
+                    advancedControllableProperties.add(new AdvancedControllableProperty(statisticsProperties.power.name(), new Date(), powerSwitch, "0"));
+                }
+            } catch (Exception e) {
+                if (this.logger.isDebugEnabled()) {
+                    this.logger.debug("error during getPower", e);
+                }
+                throw e;
+            }
+
+            //getting diagnostic result from device
+            try {
+                statistics.put(statisticsProperties.diagnosis.name(), getDiagResult().name());
+            } catch (Exception e) {
+                if (this.logger.isDebugEnabled()) {
+                    this.logger.debug("error during getDiagResult", e);
+                }
+                throw e;
+            }
+
+            //getting current device input
+            try {
+                statistics.put(statisticsProperties.input.name(), getInput().name());
+            } catch (Exception e) {
+                if (this.logger.isDebugEnabled()) {
+                    this.logger.debug("error during getInput", e);
+                }
+                throw e;
+            }
+
+            //getting device temperature
+            try {
+                statistics.put(statisticsProperties.temperature.name(), String.valueOf(getTemperature()));
+            } catch (Exception e) {
+                if (this.logger.isDebugEnabled()) {
+                    this.logger.debug("error during getTemperature", e);
+                }
+                throw e;
+            }
+
+            extendedStatistics.setControllableProperties(advancedControllableProperties);
+            extendedStatistics.setStatistics(statistics);
+
+            localStatistics = extendedStatistics;
+            //Displays the generated list of controllable and statistics properties for debugging purposes
             if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during getPower", e);
+                for (AdvancedControllableProperty controlProperty : advancedControllableProperties) {
+                    this.logger.debug("controllable key: " + controlProperty.getName() + ",value: " + controlProperty.getValue());
+                }
+                for (String s : statistics.keySet()) {
+                    this.logger.debug("statistics key: " + s + ",value: " + statistics.get(s));
+                }
             }
-            throw e;
+        } finally {
+            powerLock.unlock();
         }
-
-        //getting diagnostic result from device
-        try {
-            statistics.put(statisticsProperties.diagnosis.name(), getDiagResult().name());
-        }catch (Exception e) {
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during getDiagResult", e);
-            }
-            throw e;
-        }
-
-        //getting current device input
-        try {
-            statistics.put(statisticsProperties.input.name(), getInput().name());
-        }catch (Exception e) {
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during getInput", e);
-            }
-            throw e;
-        }
-
-        //getting device temperature
-        try {
-            statistics.put(statisticsProperties.temperature.name(), String.valueOf(getTemperature()));
-        }catch (Exception e) {
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during getTemperature", e);
-            }
-            throw e;
-        }
-
-        extendedStatistics.setControl(controllable);
-        extendedStatistics.setStatistics(statistics);
-
-        //Displays the generated list of controllable for debugging purposes
-        if(this.logger.isDebugEnabled()) {
-            for (String s : controllable.keySet()) {
-                this.logger.debug("controllable key: " + s + ",value: " + controllable.get(s));
-            }
-        }
-
-        //Displays the generated list of statistics for debugging purposes
-        if(this.logger.isDebugEnabled()) {
-            for (String s : statistics.keySet()) {
-                this.logger.debug("statistics key: " + s + ",value: " + statistics.get(s));
-            }
-        }
-
-        return new ArrayList<Statistics>(Collections.singleton(extendedStatistics));
+        return Collections.singletonList(extendedStatistics);
     }
 
     /**
@@ -171,11 +199,6 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         //setting the sensor to retreive the temperature from
         send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_SET,CMD_SET_SENSOR,SENSOR_1));
 
-        //wait a sec to allow the display to settle
-        synchronized(this) {//synchronized block
-            Thread.sleep(1000);
-        }
-
         //send the get temperature command
         byte[]  response = send(NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_GET,CMD_GET_TEMP));
 
@@ -202,38 +225,28 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         }
     }
 
+
     /**
-     * This method is used to send the power ON command to the display
+     * This method is used to send the power ON/OFF command to the display
      */
-    private void powerON(){
-        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_ON);
+    private void powerSwitch(byte[] command){
+        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,command);
 
         try {
             byte[] response = send(toSend);
-
             //digesting the response but voiding the result
             digestResponse(response,responseValues.POWER_CONTROL);
+
+            updateShutdownStartupTimestamp();
+            localStatistics.getStatistics().put(statisticsProperties.power.name(), Arrays.equals(command, POWER_ON) ? "1" : "0");
+            localStatistics.getControllableProperties().stream().filter(acp -> acp.getName().equals(
+                    statisticsProperties.power.name())).findFirst().ifPresent(acp -> {
+                        acp.setTimestamp(new Date());
+                        acp.setValue(Arrays.equals(command, POWER_ON) ? "1" : "0");
+            });
         } catch (Exception e) {
             if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during power ON send", e);
-            }
-        }
-    }
-
-    /**
-     * This method is used to send the power OFF command to the display
-     */
-    private void powerOFF(){
-        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_CMD,CMD_SET_POWER,POWER_OFF);
-
-        try {
-            byte[] response = send(toSend);
-
-            //digesting the response but voiding the result
-            digestResponse(response,responseValues.POWER_CONTROL);
-        } catch (Exception e) {
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during power OFF send", e);
+                this.logger.debug("error during power switch operation", e);
             }
         }
     }
@@ -371,5 +384,24 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             throw new RuntimeException("wrong Checksum received");
         }
         return null;
+    }
+
+    /**
+     * Update timestamp of the latest shutdown/startup operation
+     * */
+    private void updateShutdownStartupTimestamp(){
+        latestShutdownStartupTimestamp = new Date().getTime();
+    }
+
+    /***
+     * Check whether the cooldown period for startup/shutdown has ended
+     * Emergency delivery is triggered automatically each time device is turned on/off
+     * Even though this device has only one control and this shouldnt be an issue - it still is
+     * since some sensors are not available right after the switch.
+     * In order to fix this - previous statistics results are returned on emergency delivery.
+     * @return boolean value indicating whether the cooldown has ended or not
+     */
+    private boolean isValidShutdownStartupCooldown(){
+        return (new Date().getTime() - latestShutdownStartupTimestamp) < STARTUP_SHUTDOWN_COOLDOWN;
     }
 }

@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2020 AVI-SPL Inc. All Rights Reserved.
+ */
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
 import com.avispl.symphony.api.dal.dto.control.ConnectionState;
@@ -302,7 +305,7 @@ public class SocketCommunicator extends BaseDevice implements Communicator {
             this.status.setConnectionState(ConnectionState.Unknown);
             this.destroyChannel();
             if (retryOnError) {
-                return this.send(data, true);
+                return this.send(data, false);
             } else {
                 throw ex;
             }
