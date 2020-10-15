@@ -8,7 +8,7 @@
     <artifactId>symphony-dal-communicator-nec-multisync</artifactId>
     <version>1.0.1</version>
     <properties>
-        <symphonyApiVersion>LATEST</symphonyApiVersion>
+        <symphonyApiVersion>RELEASE</symphonyApiVersion>
     </properties>
     <build>
         <plugins>
@@ -29,21 +29,21 @@
             <artifactId>symphony-api-dal</artifactId>
             <version>${symphonyApiVersion}</version>
             <scope>system</scope>
-            <systemPath>${basedir}/lib/symphony-api-dal-4.9.0.00409.jar</systemPath>
+            <systemPath>${basedir}/lib/symphony-api-dal-5.0.0.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.avispl.symphony.dal</groupId>
             <artifactId>symphony-dal-commons</artifactId>
             <version>${symphonyApiVersion}</version>
             <scope>system</scope>
-            <systemPath>${basedir}/lib/symphony-dal-commons-4.9.0.00409.jar</systemPath>
+            <systemPath>${basedir}/lib/symphony-dal-commons-5.0.0.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.avispl.symphony.api</groupId>
             <artifactId>symphony-api-commons</artifactId>
             <version>${symphonyApiVersion}</version>
             <scope>system</scope>
-            <systemPath>${basedir}/lib/symphony-api-commons-4.9.0.00409.jar</systemPath>
+            <systemPath>${basedir}/lib/symphony-api-commons-5.0.0.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>org.icmp4j</groupId>
@@ -63,13 +63,13 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.10.0.pr1</version>
+            <version>2.11.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.snmp4j</groupId>
             <artifactId>snmp4j</artifactId>
-            <version>2.5.0</version>
+            <version>2.6.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -87,13 +87,13 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.8</version>
+            <version>4.4.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.java.dev.jna</groupId>
             <artifactId>jna-platform</artifactId>
-            <version>5.3.1</version>
+            <version>5.5.0</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
