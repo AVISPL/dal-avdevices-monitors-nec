@@ -288,24 +288,6 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
     /**
-     * This method is is used to change the display input (future pupose (Symphony doesn't currently support enums)
-     * @param i This is the input to change to
-     */
-    private void setInput(inputNames i){
-        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_SET,CMD_SET_INPUT,inputs.get(i));
-
-        try {
-            byte[] response = send(toSend);
-
-            digestResponse(response,responseValues.INPUT_CONTROL);
-        } catch (Exception e) {
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during setInput send", e);
-            }
-        }
-    }
-
-    /**
      * This method is used to digest the response received from the device
      * @param response This is the response to be digested
      * @param expectedResponse This is the expected response type to be compared with received
