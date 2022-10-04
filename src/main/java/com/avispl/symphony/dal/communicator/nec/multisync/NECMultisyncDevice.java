@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 AVI-SPL Inc. All Rights Reserved.
+ * Copyright (c) 2022 AVI-SPL Inc. All Rights Reserved.
  */
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
@@ -10,6 +10,7 @@ import com.avispl.symphony.api.dal.dto.monitor.ExtendedStatistics;
 import com.avispl.symphony.api.dal.dto.monitor.Statistics;
 import com.avispl.symphony.api.dal.monitor.Monitorable;
 import com.avispl.symphony.dal.communicator.SocketCommunicator;
+import com.avispl.symphony.dal.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -24,7 +25,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     private long latestShutdownStartupTimestamp;
 
     private ExtendedStatistics localStatistics;
-
+    private String historicalProperties;
     private final ReentrantLock powerLock = new ReentrantLock();
 
     /**
@@ -42,6 +43,23 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         this.setCommandErrorList(Collections.singletonList("ERROR"));
     }
 
+    /**
+     * Retrieves {@link #historicalProperties}
+     *
+     * @return value of {@link #historicalProperties}
+     */
+    public String getHistoricalProperties() {
+        return historicalProperties;
+    }
+
+    /**
+     * Sets {@link #historicalProperties} value
+     *
+     * @param historicalProperties new value of {@link #historicalProperties}
+     */
+    public void setHistoricalProperties(String historicalProperties) {
+        this.historicalProperties = historicalProperties;
+    }
 
     /**
      * This method is recalled by Symphony to control specific property
@@ -102,6 +120,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             List<AdvancedControllableProperty> advancedControllableProperties = new ArrayList<>();
             //statistics
             Map<String, String> statistics = new HashMap<>();
+            Map<String, String> dynamicStatistics = new HashMap<>();
 
             //controllable properties
             AdvancedControllableProperty.Switch powerSwitch = new AdvancedControllableProperty.Switch();
@@ -148,7 +167,13 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
             //getting device temperature
             try {
-                statistics.put(statisticsProperties.temperature.name(), String.valueOf(getTemperature()));
+                String temperatureParameter = statisticsProperties.temperature.name();
+                String temperatureValue = String.valueOf(getTemperature());
+                if (StringUtils.isNotNullOrEmpty(historicalProperties) && historicalProperties.contains(temperatureParameter)) {
+                    dynamicStatistics.put(temperatureParameter, temperatureValue);
+                } else {
+                    statistics.put(temperatureParameter, temperatureValue);
+                }
             } catch (Exception e) {
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getTemperature", e);
@@ -158,6 +183,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
             extendedStatistics.setControllableProperties(advancedControllableProperties);
             extendedStatistics.setStatistics(statistics);
+            extendedStatistics.setDynamicStatistics(dynamicStatistics);
 
             localStatistics = extendedStatistics;
             //Displays the generated list of controllable and statistics properties for debugging purposes
@@ -284,24 +310,6 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             throw new Exception();
         }else{
             return input;
-        }
-    }
-
-    /**
-     * This method is is used to change the display input (future pupose (Symphony doesn't currently support enums)
-     * @param i This is the input to change to
-     */
-    private void setInput(inputNames i){
-        byte[] toSend = NECMultisyncUtils.buildSendString((byte)monitorID,MSG_TYPE_SET,CMD_SET_INPUT,inputs.get(i));
-
-        try {
-            byte[] response = send(toSend);
-
-            digestResponse(response,responseValues.INPUT_CONTROL);
-        } catch (Exception e) {
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during setInput send", e);
-            }
         }
     }
 
