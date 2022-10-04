@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 AVI-SPL Inc. All Rights Reserved.
+ * Copyright (c) 2022 AVI-SPL Inc. All Rights Reserved.
  */
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
@@ -168,10 +168,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             //getting device temperature
             try {
                 String temperatureParameter = statisticsProperties.temperature.name();
+                String temperatureValue = String.valueOf(getTemperature());
                 if (StringUtils.isNotNullOrEmpty(historicalProperties) && historicalProperties.contains(temperatureParameter)) {
-                    dynamicStatistics.put(temperatureParameter, String.valueOf(getTemperature()));
+                    dynamicStatistics.put(temperatureParameter, temperatureValue);
                 } else {
-                    statistics.put(temperatureParameter, String.valueOf(getTemperature()));
+                    statistics.put(temperatureParameter, temperatureValue);
                 }
             } catch (Exception e) {
                 if (this.logger.isDebugEnabled()) {
