@@ -10,7 +10,6 @@ import com.avispl.symphony.api.dal.dto.monitor.ExtendedStatistics;
 import com.avispl.symphony.api.dal.dto.monitor.Statistics;
 import com.avispl.symphony.api.dal.monitor.Monitorable;
 import com.avispl.symphony.dal.communicator.SocketCommunicator;
-import com.avispl.symphony.dal.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -25,7 +24,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     private long latestShutdownStartupTimestamp;
 
     private ExtendedStatistics localStatistics;
-    private String historicalProperties;
+    private Set<String> historicalProperties = new HashSet<>();
     private final ReentrantLock powerLock = new ReentrantLock();
 
     /**
@@ -49,7 +48,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
      * @return value of {@link #historicalProperties}
      */
     public String getHistoricalProperties() {
-        return historicalProperties;
+        return String.join(",", this.historicalProperties);
     }
 
     /**
@@ -58,7 +57,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
      * @param historicalProperties new value of {@link #historicalProperties}
      */
     public void setHistoricalProperties(String historicalProperties) {
-        this.historicalProperties = historicalProperties;
+        this.historicalProperties.clear();
+        Arrays.asList(historicalProperties.split(",")).forEach(propertyName -> {
+            this.historicalProperties.add(propertyName.trim());
+        });
     }
 
     /**
@@ -169,7 +171,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             try {
                 String temperatureParameter = statisticsProperties.temperature.name();
                 String temperatureValue = String.valueOf(getTemperature());
-                if (StringUtils.isNotNullOrEmpty(historicalProperties) && historicalProperties.contains(temperatureParameter)) {
+                if (!historicalProperties.isEmpty() && historicalProperties.contains(temperatureParameter)) {
                     dynamicStatistics.put(temperatureParameter, temperatureValue);
                 } else {
                     statistics.put(temperatureParameter, temperatureValue);
