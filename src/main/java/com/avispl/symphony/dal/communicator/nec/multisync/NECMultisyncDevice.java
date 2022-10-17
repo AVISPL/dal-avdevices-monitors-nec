@@ -248,7 +248,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         if(power == null)
         {
-            throw new Exception();
+            throw new RuntimeException("Unable to retrieve power status from the device.");
         }else{
             return power;
         }
@@ -292,7 +292,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         if(diagResult == null)
         {
-            throw new Exception();
+            throw new RuntimeException("Unable to retrieve self diagnostics details from the device.");
         }else{
             return diagResult;
         }
@@ -309,7 +309,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         if(input == null)
         {
-            throw new Exception();
+            throw new RuntimeException("Unable to retrieve input response from the device.");
         }else{
             return input;
         }
