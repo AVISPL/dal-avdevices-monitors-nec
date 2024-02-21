@@ -7,7 +7,18 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Constants class for NEC MultiSync monitor properties.
+ *
+ * @author Harry / Symphony Dev Team<br>
+ * Created on 2/21/2024
+ * @since 1.2.0
+ */
 class NECMultisyncConstants {
+    final static String NUMBER_ONE = "1";
+    final static String ZERO = "0";
+    final static String NONE = "None";
+    final static String EMPTY = "";
 
     //Command types HEX codes
     final static byte MSG_TYPE_CMD = 0x41;
@@ -20,9 +31,9 @@ class NECMultisyncConstants {
     //Commands HEX codes
     final static byte[] CMD_GET_POWER = {0x30,0x31,0x44,0x36};
     final static byte[] CMD_SET_POWER = {0x43,0x32,0x30,0x33,0x44,0x36};
-    final static byte[] CMD_SELF_DIAG = {0x42,0x31};
-    final static byte[] CMD_SET_INPUT = {0x30,0x30,0x36,0x30};
-    final static byte[] CMD_GET_INPUT = {0x30,0x30,0x36,0x30};
+    final static byte[] CMD_SELF_DIAG = { 0x42, 0x31 };
+    final static byte[] CMD_SET_INPUT = { 0x31, 0x31, 0x30, 0x36 };
+    final static byte[] CMD_GET_INPUT = { 0x30, 0x30, 0x36, 0x30 };
     final static byte[] CMD_SET_SENSOR = {0x30,0x32,0x37,0x38};
     final static byte[] CMD_GET_TEMP= {0x30,0x32,0x37,0x39};
 
@@ -70,26 +81,25 @@ class NECMultisyncConstants {
     }};
 
     //Input Values
-    enum inputNames {NOSOURCE,VGA,VGAHV,DVI,VIDEO1,VIDEO2,SVIDEO,COMP1,COMP2,TV,HDMI1,HDMI2,HDMI3,DPORT}
+    enum inputNames {COMPUTE_MODULE, DVI1, DVI2, DPORT1, DPORT2, HDMI1, HDMI2, HDMI3, NO_SOURCE, OPTION, VIDEO1, VIDEO2, SVIDEO}
 
     //Inputs HEX codes map
     final static Map<inputNames, byte[]> inputs = new HashMap<inputNames, byte[]>() {{
-        put(inputNames.NOSOURCE, new byte[] {0x30,0x30,0x30,0x30});
-        put(inputNames.VGA, new byte[] {0x30,0x30,0x30,0x31});
-        put(inputNames.VGAHV, new byte[] {0x30,0x30,0x30,0x32});
-        put(inputNames.DVI, new byte[] {0x30,0x30,0x30,0x33});
-        put(inputNames.VIDEO1, new byte[] {0x30,0x30,0x30,0x35});
-        put(inputNames.VIDEO2, new byte[] {0x30,0x30,0x30,0x36});
-        put(inputNames.SVIDEO, new byte[] {0x30,0x30,0x30,0x37});
-        put(inputNames.COMP1, new byte[] {0x30,0x30,0x30,0x43});
-        put(inputNames.COMP2, new byte[] {0x30,0x30,0x30,0x34});
-        put(inputNames.TV, new byte[] {0x30,0x30,0x30,0x41});
-        put(inputNames.HDMI1, new byte[] {0x30,0x30,0x31,0x31});
-        put(inputNames.HDMI2, new byte[] {0x30,0x30,0x31,0x32});
-        put(inputNames.HDMI3, new byte[] {0x30,0x30,0x31,0x33});
-        put(inputNames.DPORT, new byte[] {0x30,0x30,0x30,0x46});
+        put(inputNames.NO_SOURCE, new byte[] { 0x30, 0x30, 0x30, 0x30 });
+        put(inputNames.DVI1, new byte[] { 0x30, 0x30, 0x30, 0x33 });
+        put(inputNames.DVI2, new byte[] { 0x30, 0x30, 0x30, 0x34 });
+        put(inputNames.VIDEO1, new byte[] { 0x30, 0x30, 0x30, 0x35 });
+        put(inputNames.VIDEO2, new byte[] { 0x30, 0x30, 0x30, 0x36 });
+        put(inputNames.SVIDEO, new byte[] { 0x30, 0x30, 0x30, 0x37 });
+        put(inputNames.HDMI1, new byte[] { 0x30, 0x30, 0x31, 0x31 });
+        put(inputNames.HDMI2, new byte[] { 0x30, 0x30, 0x31, 0x32 });
+        put(inputNames.HDMI3, new byte[] { 0x30, 0x30, 0x31, 0x33 });
+        put(inputNames.DPORT1, new byte[] { 0x30, 0x30, 0x30, 0x46 });
+        put(inputNames.DPORT2, new byte[] { 0x30, 0x30, 0x31, 0x30 });
+        put(inputNames.OPTION, new byte[] { 0x30, 0x30, 0x30, 0x44 });
+        put(inputNames.COMPUTE_MODULE, new byte[] { 0x30, 0x30, 0x38, 0x38 });
     }};
 
-    enum controlProperties {power,input}
-    enum statisticsProperties {power,diagnosis,input,temperature}
+    enum controlProperties {Power, Input}
+    enum statisticsProperties {Power, Diagnosis, Input, Temperature}
 }
