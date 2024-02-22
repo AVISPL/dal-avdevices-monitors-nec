@@ -119,11 +119,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     @Override
     public void controlProperty(ControllableProperty controllableProperty) throws Exception {
         reentrantLock.lock();
-        String propertyName = controllableProperty.getProperty();
-        String value = String.valueOf(controllableProperty.getValue());
-        Map<String, String> stats = localStatistics.getStatistics();
-        List<AdvancedControllableProperty> advancedControllableProperties = localStatistics.getControllableProperties();
         try {
+            String propertyName = controllableProperty.getProperty();
+            String value = String.valueOf(controllableProperty.getValue());
+            Map<String, String> stats = localStatistics.getStatistics();
+            List<AdvancedControllableProperty> advancedControllableProperties = localStatistics.getControllableProperties();
             if (propertyName.equals(controlProperties.Power.name())) {
                 String inputValue = stats.get(statisticsProperties.Input.name());
                 if (value.equals(NECMultisyncConstants.NUMBER_ONE)) {
