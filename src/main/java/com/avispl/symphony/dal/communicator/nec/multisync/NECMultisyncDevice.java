@@ -233,7 +233,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
             //getting device temperature
             try {
-                String temperatureParameter = statisticsProperties.Temperature.name();
+                String temperatureParameter = statisticsProperties.Temperature.name() + "(C)";
                 String temperatureValue = String.valueOf(getTemperature());
                 if (!historicalProperties.isEmpty() && historicalProperties.contains(temperatureParameter)) {
                     dynamicStatistics.put(temperatureParameter, temperatureValue);

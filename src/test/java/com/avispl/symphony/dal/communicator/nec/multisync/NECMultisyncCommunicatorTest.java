@@ -61,7 +61,7 @@ public class NECMultisyncCommunicatorTest {
 
 	@Test
 	void testHistorical() throws Exception {
-		necMultisyncDevice.setHistoricalProperties("temperature");
+		necMultisyncDevice.setHistoricalProperties("Temperature(C)");
 		extendedStatistic = (ExtendedStatistics) necMultisyncDevice.getMultipleStatistics().get(0);
 		List<AdvancedControllableProperty> advancedControllablePropertyList = extendedStatistic.getControllableProperties();
 		Map<String, String> statistics = extendedStatistic.getStatistics();
