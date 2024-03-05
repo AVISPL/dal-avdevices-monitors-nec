@@ -72,6 +72,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     private final int STARTUP_SHUTDOWN_COOLDOWN = 3000;
     private long latestShutdownStartupTimestamp;
     private ExtendedStatistics localStatistics;
+    private String temperatureValue;
     private Set<String> historicalProperties = new HashSet<>();
     private final ReentrantLock reentrantLock = new ReentrantLock();
 
@@ -134,6 +135,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                     removeValueForTheControllableProperty(stats, advancedControllableProperties, statisticsProperties.Input.name());
                     stats.put(statisticsProperties.Input.name(), inputValue);
                 }
+                stats.put(statisticsProperties.Temperature.name() + "(C)", temperatureValue);
             } else if (propertyName.equals(controlProperties.Input.name())) {
                 changeInputValue(value);
             }
@@ -203,7 +205,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getPower", e);
                 }
-                throw e;
+                throw new ResourceNotReachableException(e.getMessage());
             }
 
             //getting diagnostic result from device
@@ -213,7 +215,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getDiagResult", e);
                 }
-                throw e;
+                throw new ResourceNotReachableException(e.getMessage());
             }
 
             //getting current device input
@@ -228,13 +230,13 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getInput", e);
                 }
-                throw e;
+                throw new ResourceNotReachableException(e.getMessage());
             }
 
             //getting device temperature
             try {
                 String temperatureParameter = statisticsProperties.Temperature.name() + "(C)";
-                String temperatureValue = String.valueOf(getTemperature());
+                temperatureValue = String.valueOf(getTemperature());
                 if (!historicalProperties.isEmpty() && historicalProperties.contains(temperatureParameter)) {
                     dynamicStatistics.put(temperatureParameter, temperatureValue);
                 } else {
@@ -244,7 +246,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getTemperature", e);
                 }
-                throw e;
+                throw new ResourceNotReachableException(e.getMessage());
             }
 
             extendedStatistics.setControllableProperties(advancedControllableProperties);
@@ -313,7 +315,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         if(power == null)
         {
-            throw new Exception();
+            throw new ResourceNotReachableException("Error while retrieve Power status");
         }else{
             return power;
         }
@@ -328,7 +330,16 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         try {
             byte[] response = send(toSend);
             //digesting the response but voiding the result
-            digestResponse(response,responseValues.POWER_CONTROL);
+            digestResponse(response, responseValues.POWER_CONTROL);
+            Thread.sleep(5000);
+            response = send(NECMultisyncUtils.buildSendString((byte) monitorID, MSG_TYPE_CMD, CMD_GET_POWER));
+            powerStatus power = (powerStatus) digestResponse(response, responseValues.POWER_STATUS_READ);
+            if (power == null) {
+                throw new IllegalArgumentException("Error during power switch operation");
+            }
+            if (!(Arrays.equals(command, POWER_ON) && power.name().contains("ON") || Arrays.equals(command, POWER_OFF) && power.name().contains("OFF"))) {
+                throw new IllegalArgumentException("Error during power switch operation. The current power status is " + power.name());
+            }
 
             updateShutdownStartupTimestamp();
             localStatistics.getStatistics().put(statisticsProperties.Power.name(), Arrays.equals(command, POWER_ON) ? NECMultisyncConstants.NUMBER_ONE : NECMultisyncConstants.ZERO);
@@ -338,9 +349,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 acp.setValue(Arrays.equals(command, POWER_ON) ? NECMultisyncConstants.NUMBER_ONE : NECMultisyncConstants.ZERO);
             });
         } catch (Exception e) {
-            if (this.logger.isDebugEnabled()) {
-                this.logger.debug("error during power switch operation", e);
-            }
+            throw new IllegalArgumentException(e.getMessage());
         }
     }
 
@@ -419,7 +428,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         diagResultNames diagResult = (diagResultNames) digestResponse(response, responseValues.SELF_DIAG);
 
         if (diagResult == null) {
-            throw new Exception();
+            throw new ResourceNotReachableException("Error while retrieve Diagnosis status");
         } else {
             return diagResult;
         }
@@ -435,7 +444,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         inputNames input = (inputNames) digestResponse(response, responseValues.INPUT_STATUS_READ);
 
         if (input == null) {
-            throw new Exception();
+            throw new ResourceNotReachableException("Error while retrieve Input status");
         } else {
             return input;
         }

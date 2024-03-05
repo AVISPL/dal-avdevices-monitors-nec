@@ -32,7 +32,7 @@ public class NECMultisyncCommunicatorTest {
 	@BeforeEach()
 	public void setUp() throws Exception {
 		necMultisyncDevice = new NECMultisyncDevice();
-		necMultisyncDevice.setHost("172.31.254.248");
+		necMultisyncDevice.setHost("");
 		necMultisyncDevice.setPort(7142);
 		necMultisyncDevice.setLogin("");
 		necMultisyncDevice.setPassword("");
@@ -76,7 +76,7 @@ public class NECMultisyncCommunicatorTest {
 		Map<String, String> statistics = extendedStatistic.getStatistics();
 
 		String property = "Input";
-		String value = "HDMI3";
+		String value = "HDMI2";
 		ControllableProperty controllableProperty = new ControllableProperty();
 		controllableProperty.setProperty(property);
 		controllableProperty.setValue(value);
