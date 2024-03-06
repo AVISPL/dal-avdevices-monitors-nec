@@ -19,6 +19,7 @@ class NECMultisyncConstants {
     final static String ZERO = "0";
     final static String NONE = "None";
     final static String EMPTY = "";
+    final static String MESSAGE_ERROR = "Can't retrieve the data. ";
 
     //Command types HEX codes
     final static byte MSG_TYPE_CMD = 0x41;
