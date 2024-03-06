@@ -205,7 +205,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getPower", e);
                 }
-                throw new ResourceNotReachableException(e.getMessage());
+                throw new ResourceNotReachableException(NECMultisyncConstants.MESSAGE_ERROR + e.getMessage());
             }
 
             //getting diagnostic result from device
@@ -215,7 +215,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getDiagResult", e);
                 }
-                throw new ResourceNotReachableException(e.getMessage());
+                throw new ResourceNotReachableException(NECMultisyncConstants.MESSAGE_ERROR + e.getMessage());
             }
 
             //getting current device input
@@ -230,7 +230,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getInput", e);
                 }
-                throw new ResourceNotReachableException(e.getMessage());
+                throw new ResourceNotReachableException(NECMultisyncConstants.MESSAGE_ERROR + e.getMessage());
             }
 
             //getting device temperature
@@ -246,7 +246,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
                 if (this.logger.isDebugEnabled()) {
                     this.logger.debug("error during getTemperature", e);
                 }
-                throw new ResourceNotReachableException(e.getMessage());
+                throw new ResourceNotReachableException(NECMultisyncConstants.MESSAGE_ERROR + e.getMessage());
             }
 
             extendedStatistics.setControllableProperties(advancedControllableProperties);
