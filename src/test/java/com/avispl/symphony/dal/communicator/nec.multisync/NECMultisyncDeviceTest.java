@@ -50,8 +50,8 @@ public class NECMultisyncDeviceTest {
 		Map<String, String> dynamicStatistic = extendedStatistic.getDynamicStatistics();
 		Map<String, String> statistics = extendedStatistic.getStatistics();
 
-		Assertions.assertNotNull(dynamicStatistic.get(NECMultisyncConstants.statisticsProperties.temperature.name()));
-		Assertions.assertEquals("HDMI1_PC", statistics.get(NECMultisyncConstants.statisticsProperties.input.name()));
-		Assertions.assertEquals("1", statistics.get(NECMultisyncConstants.statisticsProperties.power.name()));
+		Assertions.assertNotNull(dynamicStatistic.get(NECMultisyncConstants.statisticsProperties.Temperature.name()));
+		Assertions.assertEquals("HDMI1_PC", statistics.get(NECMultisyncConstants.statisticsProperties.Input.name()));
+		Assertions.assertEquals("1", statistics.get(NECMultisyncConstants.statisticsProperties.Power.name()));
 	}
 }
