@@ -427,8 +427,6 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         diagResultNames diagResult = (diagResultNames) digestResponse(response, responseValues.SELF_DIAG);
 
-        diagResultNames diagResult = (diagResultNames)digestResponse(response,responseValues.SELF_DIAG);
-
         if(diagResult == null)
         {
             throw new RuntimeException("Unable to retrieve self diagnostics details from the device.");
