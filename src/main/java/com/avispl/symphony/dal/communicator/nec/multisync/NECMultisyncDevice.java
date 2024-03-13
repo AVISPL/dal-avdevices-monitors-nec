@@ -315,7 +315,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         if(power == null)
         {
-            throw new ResourceNotReachableException("Error while retrieve Power status");
+            throw new RuntimeException("Unable to retrieve power status from the device.");
         }else{
             return power;
         }
@@ -427,9 +427,12 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         diagResultNames diagResult = (diagResultNames) digestResponse(response, responseValues.SELF_DIAG);
 
-        if (diagResult == null) {
-            throw new ResourceNotReachableException("Error while retrieve Diagnosis status");
-        } else {
+        diagResultNames diagResult = (diagResultNames)digestResponse(response,responseValues.SELF_DIAG);
+
+        if(diagResult == null)
+        {
+            throw new RuntimeException("Unable to retrieve self diagnostics details from the device.");
+        }else{
             return diagResult;
         }
     }
@@ -443,9 +446,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         byte[] response = send(NECMultisyncUtils.buildSendString((byte) monitorID, MSG_TYPE_GET, CMD_GET_INPUT));
         inputNames input = (inputNames) digestResponse(response, responseValues.INPUT_STATUS_READ);
 
-        if (input == null) {
-            throw new ResourceNotReachableException("Error while retrieve Input status");
-        } else {
+        if(input == null)
+        {
+            throw new RuntimeException("Unable to retrieve input response from the device.");
+        }else{
             return input;
         }
     }
