@@ -5,7 +5,7 @@ on:
     branches:
       - develop
       - 'feature/**'
-
+      - 'bugfix/**'
 jobs:
   prep:
     runs-on: ubuntu-latest
