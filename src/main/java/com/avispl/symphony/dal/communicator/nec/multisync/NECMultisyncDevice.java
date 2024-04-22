@@ -315,7 +315,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
 
         if(power == null)
         {
-            throw new ResourceNotReachableException("Error while retrieve Power status");
+            throw new RuntimeException("Unable to retrieve power status from the device.");
         }else{
             return power;
         }
