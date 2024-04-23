@@ -62,7 +62,9 @@ class NECMultisyncConstants {
 
     //Diagnostics values
     enum diagResultNames {NORMAL,STB_POWER_3_3V_ABNORMALITY,STB_POWER_5V_ABNORMALITY,PANEL_POWER_12V_ABNORMALITY,INVERTER_POWER_24V_ABNORMALITY,
-        FAN1_ABNORMALITY,FAN2_ABNORMALITY,FAN3_ABNORMALITY,LED_ABNORMALITY,TEMP_ABNORMALITY_SHUTDOWN,TEMP_ABNORMALITY_HALF_BRIGHT,MAX_TEMP_REACHED,NO_SIGNAL}
+        FAN1_ABNORMALITY,FAN2_ABNORMALITY,FAN3_ABNORMALITY,LED_ABNORMALITY_1,LED_ABNORMALITY_2,TEMP_ABNORMALITY_SHUTDOWN,TEMP_ABNORMALITY_HALF_BRIGHT,
+        MAX_TEMP_REACHED,NO_SIGNAL, COMPUTE_MODULE,EXTERNAL_REDUNDANT,INTERNAL_MAIN,ERROR_LOG_BUFFER_REDUCTION,RTC_ERROR,UNKNOWN,
+        EEPROM_ERROR,NFC_EEPROM_ERROR,CPLD_ERROR,HDMI_SW1_ERROR,HDMI_SW2_ERROR,SCALER_DP,GARNET_EEPROM_ERROR,WRONG_ROTATION,STRONG_IMPACT }
 
     //Diagnostics HEX codes map
     final static LinkedHashMap<diagResultNames, byte[]> DIAG_RESULT_CODES = new LinkedHashMap<diagResultNames,byte[]>() {{
@@ -74,15 +76,30 @@ class NECMultisyncConstants {
         put(diagResultNames.FAN1_ABNORMALITY, new byte[] {0x38,0x30});
         put(diagResultNames.FAN2_ABNORMALITY, new byte[] {0x38,0x31});
         put(diagResultNames.FAN3_ABNORMALITY, new byte[] {0x38,0x32});
-        put(diagResultNames.LED_ABNORMALITY, new byte[] {0x39,0x31});
+        put(diagResultNames.COMPUTE_MODULE, new byte[] {0x38,0x33});
+        put(diagResultNames.LED_ABNORMALITY_1, new byte[] {0x39,0x30});
+        put(diagResultNames.LED_ABNORMALITY_2, new byte[] {0x39,0x31});
+        put(diagResultNames.EXTERNAL_REDUNDANT, new byte[] {0x39,0x32});
+        put(diagResultNames.INTERNAL_MAIN, new byte[] {0x39,0x33});
         put(diagResultNames.TEMP_ABNORMALITY_SHUTDOWN, new byte[] {0x41,0x30});
         put(diagResultNames.TEMP_ABNORMALITY_HALF_BRIGHT, new byte[] {0x41,0x31});
         put(diagResultNames.MAX_TEMP_REACHED, new byte[] {0x41,0x32});
         put(diagResultNames.NO_SIGNAL, new byte[] {0x42,0x30});
+        put(diagResultNames.ERROR_LOG_BUFFER_REDUCTION, new byte[] {0x44,0x30});
+        put(diagResultNames.RTC_ERROR, new byte[] {0x44,0x31});
+        put(diagResultNames.EEPROM_ERROR, new byte[] {0x45,0x30});
+        put(diagResultNames.NFC_EEPROM_ERROR, new byte[] {0x45,0x33});
+        put(diagResultNames.CPLD_ERROR, new byte[] {0x45,0x34});
+        put(diagResultNames.HDMI_SW1_ERROR, new byte[] {0x45,0x35});
+        put(diagResultNames.HDMI_SW2_ERROR, new byte[] {0x45,0x36});
+        put(diagResultNames.SCALER_DP, new byte[] {0x45,0x37});
+        put(diagResultNames.GARNET_EEPROM_ERROR, new byte[] {0x45,0x38});
+        put(diagResultNames.WRONG_ROTATION, new byte[] {0x45,0x42});
+        put(diagResultNames.STRONG_IMPACT, new byte[] {0x45,0x43});
     }};
 
     //Input Values
-    enum inputNames {COMPUTE_MODULE, DVI1, DVI2, DPORT1, DPORT2, HDMI1, HDMI2, HDMI3, NO_SOURCE, OPTION, VIDEO1, VIDEO2, SVIDEO}
+    enum inputNames {COMPUTE_MODULE, DVI1, DVI2, DPORT1, DPORT2, HDMI1, HDMI2, HDMI3, NO_SOURCE, OPTION, VIDEO1, VIDEO2, SVIDEO, UNKNOWN}
 
     //Inputs HEX codes map
     final static Map<inputNames, byte[]> inputs = new HashMap<inputNames, byte[]>() {{
