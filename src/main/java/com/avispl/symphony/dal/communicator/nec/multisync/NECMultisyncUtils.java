@@ -1,8 +1,18 @@
+/*
+ * Copyright (c) 2020 AVI-SPL Inc. All Rights Reserved.
+ */
 package com.avispl.symphony.dal.communicator.nec.multisync;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Utils class for NEC MultiSync monitor properties.
+ *
+ * @author Harry / Symphony Dev Team<br>
+ * Created on 2/21/2024
+ * @since 1.2.0
+ */
 public class NECMultisyncUtils {
 
     //few constants used to build the commands
