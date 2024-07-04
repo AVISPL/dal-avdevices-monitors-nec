@@ -277,7 +277,14 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
     }
 
     /**
+     * Async executor service wrapper for send() operation, so we'll react if there are connection issues with the request,
+     * cancel the future and throw Socket timeout exception. This should prevent potential breaking memory leaks from occurring
+     * on a larger infrastructure scales.
      *
+     * @param data bytes to send
+     * @param timeout timeout after which operation is canceled
+     * @param unit time unit for the specified timeout
+     * @throws Exception if there was an exception during command execution
      * */
     public byte[] sendWithTimeout(byte[] data, long timeout, TimeUnit unit) throws Exception {
         ExecutorService executor = Executors.newSingleThreadExecutor();
