@@ -33,6 +33,7 @@ import static com.avispl.symphony.dal.communicator.nec.multisync.NECMultisyncCon
 import static com.avispl.symphony.dal.communicator.nec.multisync.NECMultisyncConstants.responseValues;
 import static com.avispl.symphony.dal.communicator.nec.multisync.NECMultisyncConstants.statisticsProperties;
 
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,6 +43,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.avispl.symphony.api.dal.control.Controller;
@@ -154,7 +156,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             try {
                 controlProperty(p);
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("Unable to execute control properties.", e);
             }
         });
     }
@@ -267,6 +269,43 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             reentrantLock.unlock();
         }
         return Collections.singletonList(extendedStatistics);
+    }
+
+    @Override
+    protected byte[] send(byte[] data) throws Exception {
+       return sendWithTimeout(data, 30000, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Async executor service wrapper for send() operation, so we'll react if there are connection issues with the request,
+     * cancel the future and throw Socket timeout exception. This should prevent potential breaking memory leaks from occurring
+     * on a larger infrastructure scales.
+     *
+     * @param data bytes to send
+     * @param timeout timeout after which operation is canceled
+     * @param unit time unit for the specified timeout
+     * @throws Exception if there was an exception during command execution
+     * */
+    public byte[] sendWithTimeout(byte[] data, long timeout, TimeUnit unit) throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CompletableFuture<byte[]> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                return super.send(data);
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
+        }, executor);
+
+        try {
+            return future.get(timeout, unit);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new SocketTimeoutException("Device operation timed out, please check device state and network accessibility.");
+        } catch (ExecutionException e) {
+            throw (Exception) e.getCause();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     /**
