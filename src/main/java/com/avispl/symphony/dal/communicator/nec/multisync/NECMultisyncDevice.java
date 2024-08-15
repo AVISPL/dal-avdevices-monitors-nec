@@ -33,6 +33,7 @@ import static com.avispl.symphony.dal.communicator.nec.multisync.NECMultisyncCon
 import static com.avispl.symphony.dal.communicator.nec.multisync.NECMultisyncConstants.responseValues;
 import static com.avispl.symphony.dal.communicator.nec.multisync.NECMultisyncConstants.statisticsProperties;
 
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,6 +43,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.avispl.symphony.api.dal.control.Controller;
@@ -154,7 +156,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             try {
                 controlProperty(p);
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("Unable to execute control properties.", e);
             }
         });
     }
@@ -221,7 +223,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             //getting current device input
             try {
                 String value = getInput().name();
-                if (NECMultisyncConstants.NUMBER_ONE.equalsIgnoreCase(statistics.get(statisticsProperties.Power.name())) && !NECMultisyncConstants.NONE.equalsIgnoreCase(value)) {
+                if (NECMultisyncConstants.NUMBER_ONE.equalsIgnoreCase(statistics.get(statisticsProperties.Power.name())) && !inputNames.UNKNOWN.name().equalsIgnoreCase(value)) {
                     addAdvancedControlProperties(advancedControllableProperties, statistics, createDropdown(statisticsProperties.Input.name(), getInputNamesArray(), value), value);
                 } else {
                     statistics.put(statisticsProperties.Input.name(), value);
@@ -267,6 +269,43 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             reentrantLock.unlock();
         }
         return Collections.singletonList(extendedStatistics);
+    }
+
+    @Override
+    protected byte[] send(byte[] data) throws Exception {
+       return sendWithTimeout(data, 30000, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Async executor service wrapper for send() operation, so we'll react if there are connection issues with the request,
+     * cancel the future and throw Socket timeout exception. This should prevent potential breaking memory leaks from occurring
+     * on a larger infrastructure scales.
+     *
+     * @param data bytes to send
+     * @param timeout timeout after which operation is canceled
+     * @param unit time unit for the specified timeout
+     * @throws Exception if there was an exception during command execution
+     * */
+    public byte[] sendWithTimeout(byte[] data, long timeout, TimeUnit unit) throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CompletableFuture<byte[]> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                return super.send(data);
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
+        }, executor);
+
+        try {
+            return future.get(timeout, unit);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new SocketTimeoutException("Device operation timed out, please check device state and network accessibility.");
+        } catch (ExecutionException e) {
+            throw (Exception) e.getCause();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     /**
@@ -424,13 +463,11 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
      */
     private diagResultNames getDiagResult() throws Exception {
         byte[] response = send(NECMultisyncUtils.buildSendString((byte) monitorID, MSG_TYPE_CMD, CMD_SELF_DIAG));
-
         diagResultNames diagResult = (diagResultNames) digestResponse(response, responseValues.SELF_DIAG);
 
-        if(diagResult == null)
-        {
-            throw new RuntimeException("Unable to retrieve self diagnostics details from the device.");
-        }else{
+        if (diagResult == null) {
+            return diagResultNames.UNKNOWN;
+        } else {
             return diagResult;
         }
     }
@@ -444,10 +481,10 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         byte[] response = send(NECMultisyncUtils.buildSendString((byte) monitorID, MSG_TYPE_GET, CMD_GET_INPUT));
         inputNames input = (inputNames) digestResponse(response, responseValues.INPUT_STATUS_READ);
 
-        if(input == null)
-        {
-            throw new RuntimeException("Unable to retrieve input response from the device.");
-        }else{
+        if (input == null) {
+            logger.error("Error while retrieve Input status");
+            return inputNames.UNKNOWN;
+        } else {
             return input;
         }
     }
@@ -558,7 +595,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
      * @return An array of strings representing the names of the input names enum.
      */
     private static String[] getInputNamesArray() {
-        return Arrays.stream(inputNames.values())
+        return Arrays.stream(inputNames.values()).filter(input -> !input.equals(inputNames.UNKNOWN))
             .map(Enum::name)
             .toArray(String[]::new);
     }
