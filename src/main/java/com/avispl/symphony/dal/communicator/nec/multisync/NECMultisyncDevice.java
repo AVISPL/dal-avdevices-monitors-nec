@@ -85,7 +85,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
         super();
 
         this.setPort(7142);
-        this.monitorID = 0x2A;
+        this.monitorID = 0x2A; // * for ALL
 
         // set list of command success strings (included at the end of response when command succeeds, typically ending with command prompt)
         this.setCommandSuccessList(Collections.singletonList("\r"));
