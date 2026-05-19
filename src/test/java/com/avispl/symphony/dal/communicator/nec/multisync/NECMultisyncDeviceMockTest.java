@@ -1,0 +1,387 @@
+/*
+ * Copyright (c) 2026 AVI-SPL Inc. All Rights Reserved.
+ */
+package com.avispl.symphony.dal.communicator.nec.multisync;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
+import com.avispl.symphony.api.dal.dto.control.AdvancedControllableProperty;
+import com.avispl.symphony.api.dal.dto.control.ControllableProperty;
+import com.avispl.symphony.api.dal.dto.monitor.ExtendedStatistics;
+
+@Tag("unit")
+public class NECMultisyncDeviceMockTest {
+
+	private static final byte[] DIAG_NORMAL = NECMultisyncConstants.DIAG_RESULT_CODES.get(NECMultisyncConstants.diagResultNames.NORMAL);
+
+	@Test
+	void getMultipleStatistics_powerOn_buildsInputDropdown_andParsesTempAndDiag() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('1');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.HDMI2));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0032", DIAG_NORMAL));
+
+		ExtendedStatistics stats = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+
+		assertNotNull(stats);
+
+		Map<String, String> s = stats.getStatistics();
+
+		assertEquals("1", s.get(NECMultisyncConstants.statisticsProperties.Power.name()));
+		assertEquals("HDMI2", s.get(NECMultisyncConstants.statisticsProperties.Input.name()));
+		assertEquals("Normal", s.get(NECMultisyncConstants.statisticsProperties.Diagnosis.name()));
+		assertEquals("25", s.get(NECMultisyncConstants.statisticsProperties.Temperature.name() + "(C)")); // 0x32 / 2 = 25
+
+		Optional<AdvancedControllableProperty> power = stats.getControllableProperties().stream()
+				.filter(p -> NECMultisyncConstants.statisticsProperties.Power.name().equals(p.getName())).findFirst();
+
+		Optional<AdvancedControllableProperty> input = stats.getControllableProperties().stream()
+				.filter(p -> NECMultisyncConstants.statisticsProperties.Input.name().equals(p.getName())).findFirst();
+
+		assertTrue(power.isPresent());
+		assertTrue(input.isPresent());
+	}
+
+	@Test
+	void getMultipleStatistics_powerOff_doesNotExposeInputDropdown() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('4');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.HDMI1));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0020", DIAG_NORMAL));
+
+		ExtendedStatistics stats = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+		Map<String, String> s = stats.getStatistics();
+
+		assertEquals("0", s.get(NECMultisyncConstants.statisticsProperties.Power.name()));
+
+		boolean hasInputControl = stats.getControllableProperties().stream()
+				.anyMatch(p -> NECMultisyncConstants.statisticsProperties.Input.name().equals(p.getName()));
+
+		assertFalse(hasInputControl);
+	}
+
+	@Test
+	void getMultipleStatistics_historicalTemperature_goesToDynamicStatistics() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		device.setHistoricalProperties("Temperature(C)");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('1');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.DPORT1));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0030", DIAG_NORMAL));
+
+		ExtendedStatistics stats = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+
+		assertNull(stats.getStatistics().get(NECMultisyncConstants.statisticsProperties.Temperature.name() + "(C)"));
+		assertEquals("24", stats.getDynamicStatistics().get(NECMultisyncConstants.statisticsProperties.Temperature.name() + "(C)"));
+	}
+
+	@Test
+	void getMultipleStatistics_cooldown_returnsCachedAndSkipsSend() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		AtomicInteger sendCalls = new AtomicInteger();
+		device.setSendHandler(req -> {
+			sendCalls.incrementAndGet();
+			return new byte[] { 0x01, 0x0D };
+		});
+
+		ExtendedStatistics cached = new ExtendedStatistics();
+		cached.setStatistics(new java.util.HashMap<String, String>() {{
+			put("cachedKey", "cachedValue");
+		}});
+		cached.setControllableProperties(java.util.Collections.emptyList());
+
+		setField(device, "localStatistics", cached);
+		setField(device, "latestShutdownStartupTimestamp", System.currentTimeMillis());
+
+		ExtendedStatistics stats = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+		assertEquals("cachedValue", stats.getStatistics().get("cachedKey"));
+		assertEquals(0, sendCalls.get());
+	}
+
+	@Test
+	void controlProperty_inputChange_updatesStatisticsAndControllableValue() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('1');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.HDMI1));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0020", DIAG_NORMAL));
+		device.getMultipleStatistics();
+
+		ControllableProperty changeInput = new ControllableProperty();
+		changeInput.setProperty(NECMultisyncConstants.controlProperties.Input.name());
+		changeInput.setValue(NECMultisyncConstants.inputNames.HDMI2.name());
+		device.controlProperty(changeInput);
+
+		ExtendedStatistics after = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+
+		assertEquals("HDMI2", after.getStatistics().get(NECMultisyncConstants.statisticsProperties.Input.name()));
+
+		Optional<AdvancedControllableProperty> inputControl = after.getControllableProperties().stream()
+				.filter(p -> NECMultisyncConstants.statisticsProperties.Input.name().equals(p.getName())).findFirst();
+
+		assertTrue(inputControl.isPresent());
+		assertEquals(NECMultisyncConstants.inputNames.HDMI2.name(), inputControl.get().getValue());
+	}
+
+	@Test
+	@Timeout(value = 20, unit = TimeUnit.SECONDS)
+	void controlProperty_powerOff_removesInputControlAndSetsPowerStatistic() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('1');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.HDMI1));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0020", DIAG_NORMAL));
+		device.getMultipleStatistics();
+
+		ControllableProperty powerOff = new ControllableProperty();
+		powerOff.setProperty(NECMultisyncConstants.controlProperties.Power.name());
+		powerOff.setValue(NECMultisyncConstants.ZERO);
+		device.controlProperty(powerOff);
+
+		ExtendedStatistics after = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+		assertEquals(NECMultisyncConstants.ZERO, after.getStatistics().get(NECMultisyncConstants.statisticsProperties.Power.name()));
+		assertFalse(after.getControllableProperties().stream()
+				.anyMatch(p -> NECMultisyncConstants.statisticsProperties.Input.name().equals(p.getName())));
+	}
+
+	@Test
+	@Timeout(value = 20, unit = TimeUnit.SECONDS)
+	void controlProperty_powerOn_restoresInputDropdown() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('4');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.HDMI3));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0020", DIAG_NORMAL));
+		device.getMultipleStatistics();
+
+		ControllableProperty powerOn = new ControllableProperty();
+		powerOn.setProperty(NECMultisyncConstants.controlProperties.Power.name());
+		powerOn.setValue(NECMultisyncConstants.NUMBER_ONE);
+		device.controlProperty(powerOn);
+
+		ExtendedStatistics after = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+		assertEquals(NECMultisyncConstants.NUMBER_ONE, after.getStatistics().get(NECMultisyncConstants.statisticsProperties.Power.name()));
+		assertTrue(after.getControllableProperties().stream()
+				.anyMatch(p -> NECMultisyncConstants.statisticsProperties.Input.name().equals(p.getName())));
+		assertEquals(NECMultisyncConstants.inputNames.HDMI3.name(), after.getStatistics().get(NECMultisyncConstants.statisticsProperties.Input.name()));
+	}
+
+	@Test
+	void controlProperties_symphonyBatchControlTriggers_executeEachProperty() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('1');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.HDMI1));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0020", DIAG_NORMAL));
+		device.getMultipleStatistics();
+
+		List<ControllableProperty> batch = new ArrayList<>();
+		ControllableProperty first = new ControllableProperty();
+		first.setProperty(NECMultisyncConstants.controlProperties.Input.name());
+		first.setValue(NECMultisyncConstants.inputNames.DPORT1.name());
+		batch.add(first);
+		ControllableProperty second = new ControllableProperty();
+		second.setProperty(NECMultisyncConstants.controlProperties.Input.name());
+		second.setValue(NECMultisyncConstants.inputNames.HDMI3.name());
+		batch.add(second);
+		device.controlProperties(batch);
+
+		ExtendedStatistics after = (ExtendedStatistics) device.getMultipleStatistics().get(0);
+		assertEquals(NECMultisyncConstants.inputNames.HDMI3.name(), after.getStatistics().get(NECMultisyncConstants.statisticsProperties.Input.name()));
+		Optional<AdvancedControllableProperty> inputControl = after.getControllableProperties().stream()
+				.filter(p -> NECMultisyncConstants.statisticsProperties.Input.name().equals(p.getName())).findFirst();
+
+		assertTrue(inputControl.isPresent());
+		assertEquals(NECMultisyncConstants.inputNames.HDMI3.name(), inputControl.get().getValue());
+	}
+
+	@Test
+	void controlProperty_invalidInputName_throwsIllegalArgumentException() throws Exception {
+		TestableNECMultisyncDevice device = new TestableNECMultisyncDevice();
+		device.setHost("127.0.0.1");
+		AtomicReference<Character> powerDigit = new AtomicReference<>('1');
+		AtomicReference<byte[]> inputCode = new AtomicReference<>(NECMultisyncConstants.inputs.get(NECMultisyncConstants.inputNames.HDMI1));
+		device.setSendHandler(createMockSendHandlerForDeviceSession(powerDigit, inputCode, "0020", DIAG_NORMAL));
+		device.getMultipleStatistics();
+
+		ControllableProperty bad = new ControllableProperty();
+		bad.setProperty(NECMultisyncConstants.controlProperties.Input.name());
+		bad.setValue("NotAValidInput");
+		assertThrows(IllegalArgumentException.class, () -> device.controlProperty(bad));
+	}
+
+	@Test
+	void digestResponse_wrongChecksum_throws() throws Exception {
+		NECMultisyncDevice device = new NECMultisyncDevice();
+		byte[] good = NECMultisyncProtocolTestData.buildPowerStatusReply((byte) 0x2A, '1');
+		byte[] bad = NECMultisyncProtocolTestData.corruptChecksum(good);
+		Method digest = NECMultisyncDevice.class.getDeclaredMethod("digestResponse", byte[].class, NECMultisyncConstants.responseValues.class);
+		digest.setAccessible(true);
+
+		assertThrows(RuntimeException.class, () -> {
+			try {
+				digest.invoke(device, bad, NECMultisyncConstants.responseValues.POWER_STATUS_READ);
+			} catch (Exception e) {
+				Throwable t = e.getCause() != null ? e.getCause() : e;
+				if (t instanceof RuntimeException) {
+					throw t;
+				}
+				throw new RuntimeException(t);
+			}
+		});
+	}
+
+	@Test
+	void digestResponse_unsupported_throws() throws Exception {
+		NECMultisyncDevice device = new NECMultisyncDevice();
+		byte[] resp = NECMultisyncProtocolTestData.buildUnsupportedCmdReply((byte) 0x2A);
+		Method digest = NECMultisyncDevice.class.getDeclaredMethod("digestResponse", byte[].class, NECMultisyncConstants.responseValues.class);
+		digest.setAccessible(true);
+
+		assertThrows(RuntimeException.class, () -> {
+			try {
+				digest.invoke(device, resp, NECMultisyncConstants.responseValues.POWER_STATUS_READ);
+			} catch (Exception e) {
+				Throwable t = e.getCause() != null ? e.getCause() : e;
+				if (t instanceof RuntimeException) {
+					throw t;
+				}
+				throw new RuntimeException(t);
+			}
+		});
+	}
+
+	/**
+	 * Scripted {@code send} implementation for a full statistics poll plus controllable actions (power / input),
+	 * using mutable power and input codes so control operations see consistent follow-up reads.
+	 */
+	private static Function<byte[], byte[]> createMockSendHandlerForDeviceSession(
+			AtomicReference<Character> powerStatusDigit,
+			AtomicReference<byte[]> inputCode4,
+			String temperatureHex4,
+			byte[] selfDiag2Bytes) {
+		return req -> {
+
+			if (req.length < 5) {
+				return new byte[] { 0x01, 0x0D };
+			}
+
+			byte msgType = req[4];
+
+			if (msgType == NECMultisyncConstants.MSG_TYPE_CMD && req.length >= 18
+					&& startsWithAt(req, 8, NECMultisyncConstants.CMD_SET_POWER)) {
+
+				byte[] param = Arrays.copyOfRange(req, 14, 18);
+				char ackDigit;
+				if (Arrays.equals(param, NECMultisyncConstants.POWER_ON)) {
+					ackDigit = '1';
+				} else if (Arrays.equals(param, NECMultisyncConstants.POWER_OFF)) {
+					ackDigit = '4';
+				} else {
+					ackDigit = powerStatusDigit.get();
+				}
+				powerStatusDigit.set(ackDigit);
+				return NECMultisyncProtocolTestData.buildPowerControlReply((byte) 0x2A, ackDigit);
+			}
+
+			if (msgType == NECMultisyncConstants.MSG_TYPE_CMD) {
+				if (startsWithAt(req, 8, NECMultisyncConstants.CMD_GET_POWER)) {
+					return NECMultisyncProtocolTestData.buildPowerStatusReply((byte) 0x2A, powerStatusDigit.get());
+				}
+				if (startsWithAt(req, 8, NECMultisyncConstants.CMD_SELF_DIAG)) {
+					return NECMultisyncProtocolTestData.buildSelfDiagReply((byte) 0x2A, selfDiag2Bytes);
+				}
+			}
+
+			if (msgType == NECMultisyncConstants.MSG_TYPE_GET) {
+				if (startsWithAt(req, 8, NECMultisyncConstants.CMD_GET_INPUT)) {
+					return NECMultisyncProtocolTestData.buildInputGetReply((byte) 0x2A, inputCode4.get());
+				}
+
+				if (startsWithAt(req, 8, NECMultisyncConstants.CMD_GET_TEMP)) {
+					return NECMultisyncProtocolTestData.buildTemperatureGetReply((byte) 0x2A, temperatureHex4);
+				}
+			}
+
+			if (msgType == NECMultisyncConstants.MSG_TYPE_SET && req.length >= 16
+					&& startsWithAt(req, 8, NECMultisyncConstants.CMD_SET_INPUT)) {
+				byte[] chosen = Arrays.copyOfRange(req, 12, 16);
+				inputCode4.set(chosen);
+				return NECMultisyncProtocolTestData.buildSetInputAckFrame(chosen);
+			}
+
+			if (msgType == NECMultisyncConstants.MSG_TYPE_SET) {
+				return new byte[] { 0x01, 0x30, 0x2A, 0x30, NECMultisyncConstants.MSG_TYPE_SET_REPLY, 0x0D };
+			}
+
+			return new byte[] { 0x01, 0x0D };
+		};
+	}
+
+	private static boolean startsWithAt(byte[] array, int offset, byte[] expected) {
+		if (array.length < offset + expected.length) {
+			return false;
+		}
+		for (int i = 0; i < expected.length; i++) {
+			if (array[offset + i] != expected[i]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+
+	private static void setField(Object target, String fieldName, Object value) throws Exception {
+		for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+			try {
+				Field f = c.getDeclaredField(fieldName);
+				f.setAccessible(true);
+				f.set(target, value);
+				return;
+			} catch (NoSuchFieldException ignored) {
+				// try superclass
+			}
+		}
+		throw new NoSuchFieldException(fieldName);
+	}
+
+	private static void setField(Object target, String fieldName, long value) throws Exception {
+		for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+			try {
+				Field f = c.getDeclaredField(fieldName);
+				f.setAccessible(true);
+				f.setLong(target, value);
+				return;
+			} catch (NoSuchFieldException ignored) {
+				// try superclass
+			}
+		}
+		throw new NoSuchFieldException(fieldName);
+	}
+
+}
+
+
