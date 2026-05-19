@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -29,6 +30,7 @@ import com.avispl.symphony.api.dal.dto.control.AdvancedControllableProperty;
 import com.avispl.symphony.api.dal.dto.control.ControllableProperty;
 import com.avispl.symphony.api.dal.dto.monitor.ExtendedStatistics;
 
+@Tag("unit")
 public class NECMultisyncDeviceMockTest {
 
 	private static final byte[] DIAG_NORMAL = NECMultisyncConstants.DIAG_RESULT_CODES.get(NECMultisyncConstants.diagResultNames.NORMAL);

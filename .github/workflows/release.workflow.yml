@@ -49,7 +49,7 @@ jobs:
       - name: Version set
         run: mvn versions:set versions:commit -DnewVersion=${{ needs.versiongenerate.outputs.version }}
       - name: Build and test with Maven
-        run: mvn -B clean install -DskipTests
+        run: mvn -B clean install
       - name: PMD check
         run: mvn pmd:check
       - id: getfilename
