@@ -139,6 +139,7 @@ public class NECMultisyncDevice extends SocketCommunicator implements Controller
             } else if (propertyName.equals(controlProperties.Input.name())) {
                 changeInputValue(value);
             }
+            localStatistics.setControllableProperties(advancedControllableProperties);
         } finally {
             reentrantLock.unlock();
         }
