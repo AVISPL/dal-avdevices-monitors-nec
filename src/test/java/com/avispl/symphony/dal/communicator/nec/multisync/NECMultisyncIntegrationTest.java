@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 AVI-SPL, Inc. All Rights Reserved.
+ *  Copyright (c) 2026 AVI-SPL, Inc. All Rights Reserved.
  */
 
 package com.avispl.symphony.dal.communicator.nec.multisync;
@@ -11,21 +11,15 @@ import java.util.Optional;
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import com.avispl.symphony.api.dal.dto.control.AdvancedControllableProperty;
 import com.avispl.symphony.api.dal.dto.control.ControllableProperty;
 import com.avispl.symphony.api.dal.dto.monitor.ExtendedStatistics;
-import com.avispl.symphony.api.dal.dto.monitor.aggregator.AggregatedDevice;
 
-/**
- * MiddleAtlanticUPSCommunicatorTest for unit test of MiddleAtlanticUPSCommunicator
- *
- * @author Harry / Symphony Dev Team<br>
- * Created on 30/10/2023
- * @since 1.0.0
- */
-public class NECMultisyncCommunicatorTest {
+@Tag("integration")
+public class NECMultisyncIntegrationTest {
 	private NECMultisyncDevice necMultisyncDevice;
 	static ExtendedStatistics extendedStatistic;
 
